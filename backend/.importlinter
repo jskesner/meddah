@@ -1,0 +1,18 @@
+[importlinter]
+root_package = app
+
+[importlinter:contract:layers]
+name = Layered Architecture Contract
+type = layers
+containers =
+    app
+layers =
+    api | cli
+    multiplayer | vtt | media | safety
+    agents
+    storage | world_gen | systems | ingestion
+    ruleset_vm | mud_parser
+
+# Sibling-module independence contract (`[importlinter:contract:module-independence]`)
+# will be enabled progressively as optional module subpackages are added in Phases 7-14
+# because import-linter validates that every listed module path is importable.

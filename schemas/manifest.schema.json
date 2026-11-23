@@ -1,0 +1,87 @@
+{
+  "additionalProperties": false,
+  "description": "Authoritative metadata header for portable Meddah archives.",
+  "properties": {
+    "authors": {
+      "default": [],
+      "description": "Package authors or maintainers.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Authors",
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "description": "Optional short description of the package contents.",
+      "title": "Description",
+      "type": "string"
+    },
+    "license": {
+      "default": "All Rights Reserved",
+      "description": "Creator license identifier for this user data package.",
+      "title": "License",
+      "type": "string"
+    },
+    "name": {
+      "description": "Human-readable package display name.",
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "package_id": {
+      "description": "Stable slug identifier for the packaged resource.",
+      "minLength": 1,
+      "title": "Package Id",
+      "type": "string"
+    },
+    "package_type": {
+      "description": "Archive kind (.rpgrules, .rpgworld, .rpgcampaign, etc.).",
+      "enum": [
+        "ruleset",
+        "world",
+        "campaign",
+        "character",
+        "tileset",
+        "theme",
+        "profile",
+        "competition"
+      ],
+      "title": "Package Type",
+      "type": "string"
+    },
+    "ruleset_hash": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional SHA-256 hash of the bound source ruleset schema.",
+      "title": "Ruleset Hash"
+    },
+    "schema_version": {
+      "default": "0.1.0",
+      "description": "Semantic version of the package archive format.",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "version": {
+      "description": "Creator-assigned semantic version of this package.",
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "package_type",
+    "package_id",
+    "name",
+    "version"
+  ],
+  "title": "PackageManifest",
+  "type": "object"
+}
