@@ -1,0 +1,50 @@
+name: Meddah CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  repo-hygiene:
+    name: Repository & Documentation Hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify required root & governance files exist
+        run: |
+          for required in LICENSE README.md ROADMAP.md CHANGELOG.md .gitignore .env.example docs/CONTRIBUTING.md; do
+            if [ ! -f "$required" ]; then
+              echo "Missing required file: $required"
+              exit 1
+            fi
+          done
+
+      - name: Verify no local .env files are tracked in git
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
+            echo "Forbidden .env secret file tracked in repository!"
+            exit 1
+          fi
+
+      - name: Verify design docs contain no local host file URIs
+        run: |
+          if grep -rn 'file:///' docs/design/; then
+            echo "Found non-portable file:/// URI inside docs/design/"
+            exit 1
+          fi
+
+  # Phase 1+ gates (backend/ & desktop/ CI jobs activate as Phase 1 and Phase 6 land):
+  # - ruff format --check && ruff check && pyright
+  # - python tools/lint_agnosticism.py && python tools/lint_modularity.py
+  # - lint-imports (backend/.importlinter)
+  # - python tools/generate_types.py --check
+  # - pytest -m zero_ai && pytest backend/tests/conformance/ && pytest backend/tests/perf/
+  # - pnpm eslint . && pnpm tsc --noEmit && pnpm test:a11y (axe-core)
+  # - python tools/roadmap.py --check

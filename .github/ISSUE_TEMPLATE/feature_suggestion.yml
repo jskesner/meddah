@@ -1,0 +1,31 @@
+name: Feature Suggestion
+description: Suggest an improvement, new ruleset primitive, or UX enhancement (maintainers triage into ROADMAP.md)
+title: "[Idea]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Tabletop Need
+      description: Describe the tabletop mechanic, workflow, or UX gap you want to support.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Agnostic Design Proposal
+      description: How can this work as a ruleset-agnostic, opt-in module usable without AI?
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Suggested Area
+      options:
+        - "Ruleset VM / Building Blocks"
+        - "Ingestion & Visual Studios"
+        - "MUD UI / Theme / Accessibility"
+        - "2.5D Tactical VTT / Cartography"
+        - "Multiplayer / West Marches / Guild Server"
+        - "Audio / Visual FX"
+        - "Other"

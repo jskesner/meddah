@@ -1,0 +1,36 @@
+# Version control & local secrets
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Python virtualenvs, caches & test artifacts
+**/.venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Desktop client & Node artifacts (headless server builds only need backend/ + built web client when packaged)
+desktop/node_modules/
+desktop/release/
+playwright-report/
+test-results/
+
+# Local runtime campaign state & caches
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+.chroma/
+data/
+logs/
+
+# Documentation & design specs
+docs/design/
+docs/adr/

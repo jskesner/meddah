@@ -1,0 +1,54 @@
+name: Bug Report
+description: Report a bug, regression, determinism mismatch, or ruleset VM error in Meddah
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the unexpected behavior or error.
+    validations:
+      required: true
+  - type: input
+    id: roadmap_ref
+    attributes:
+      label: Related Phase / Module (if known)
+      placeholder: e.g., P1 / ruleset_vm, P6 / vtt
+  - type: dropdown
+    id: ai_tier
+    attributes:
+      label: AI Tier Active During Reproduction
+      options:
+        - "Tier A (Zero-AI / Deterministic)"
+        - "Tier B (Local LLM via Ollama)"
+        - "Tier C (Cloud API)"
+    validations:
+      required: true
+  - type: dropdown
+    id: delivery_mode
+    attributes:
+      label: Delivery Target / Environment
+      options:
+        - "Electron Desktop App"
+        - "Headless Server + Browser Web Client"
+        - "Terminal CLI (meddah attach / serve)"
+        - "Docker Container"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Include ruleset paradigm, MUD commands, or campaign settings.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Code (e.g., RPG-E####)
+      render: text

@@ -1,0 +1,58 @@
+# Environment and secrets (keep all local .env files out of version control)
+.env
+.env.*
+!.env.example
+
+# Python environments, caches & build outputs
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+htmlcov/
+
+# Node, Vite, TypeScript & Electron build artifacts
+node_modules/
+desktop/node_modules/
+desktop/dist/
+desktop/dist-electron/
+desktop/release/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+
+# Playwright & test reports
+playwright-report/
+test-results/
+blob-report/
+
+# Local runtime state, SQLite WAL files & vector stores
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+.chroma/
+data/
+logs/
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
