@@ -104,6 +104,15 @@ Defaults below apply *only when the ruleset supplies the required primitives*; w
 ---
 
 ### 1.1 Universal Ruleset VM (`backend/app/ruleset_vm/`)
+0. **Universal Randomizer Primitives (`randomizers.py`)**:
+   - Supports **7 deterministic randomizer kinds** bound cleanly to named seeded scene RNG streams (`rng.py`):
+     1. `dice_formula` (`NdS` expressions with keep-highest `khK`, keep-lowest `klK`, exploding `!`, and arithmetic modifiers).
+     2. `dice_pool` (`pool_size_formula` pools counting hits `>= success_threshold` with strict glitch ratio detection and optional `face_symbols`).
+     3. `step_dice` (dynamic trait step-die sizes with optional exploding wild die and symbol mapping).
+     4. `coin_flip` (single coin flip or multi-coin pools driven by `pool_size_formula`, customizable setting-agnostic face labels `coin_heads_label` / `coin_tails_label` such as *Sun/Moon* or *Crown/Skull*, `@roll.heads`/`@roll.tails`/`@roll.symbols` bindings, and direct linkage to the optional Phase 13 3D Metallic Coin-Flip tray in [Vol 4 §1.7.5](./tech_spec_04_multiplayer_ui_and_vtt.md)).
+     5. `card_deck` (`table_shared` / `per_entity` / `encounter_local` draw without replacement + deterministic discard reshuffle).
+     6. `resource_wager` (diceless resource/momentum bidding).
+     7. `none` (pure narrative/deterministic resolution).
 1. **Pluggable Flow & Turn Controller (`flow_controller.py`)**:
    - **`freeform` (Exploration / Social)**: Real-time/tick-based MUD flow; any entity can act at any time; background world clocks tick on scene changes or rest intervals.
    - **`round_initiative` (Structured Tactical)**: Entities roll the ruleset's `initiative_formula`; turns advance strictly down the sorted queue (with support for delayed turns, reactions per round, and start/end-of-turn ECA hooks).

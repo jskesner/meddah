@@ -1,4 +1,4 @@
-"""Deterministic randomizer resolution across all 6 Ruleset VM paradigms."""
+"""Deterministic randomizer resolution across all 7 Ruleset VM paradigms."""
 
 from __future__ import annotations
 
@@ -42,6 +42,8 @@ class RollResult(BaseModel):
     modifier: int | float = 0
     total: int | float = 0
     hits: int | None = None
+    heads_count: int | None = None
+    tails_count: int | None = None
     is_glitch: bool = False
     symbols: tuple[str, ...] = ()
     drawn_cards: tuple[str, ...] = ()
@@ -184,6 +186,29 @@ def _resolve_dice_pool(
     return tuple(rolls), tuple(rolls), hits, is_glitch, tuple(symbols), desc
 
 
+def _resolve_coin_flip(
+    spec: RandomizerSpec,
+    rng: DeterministicRngStream,
+    eval_ctx: Mapping[str, object],
+    modifier_value: int | float,
+) -> tuple[tuple[int, ...], tuple[int, ...], int, int, tuple[str, ...], int | float, str]:
+    coin_count_val = _coerce_number(
+        evaluate_formula(spec.pool_size_formula, eval_ctx), "pool_size_formula"
+    )
+    coin_count = max(0, min(int(coin_count_val), _MAX_DICE_PER_TERM))
+    flips = [rng.randint(0, 1) for _ in range(coin_count)]
+    heads = sum(1 for flip in flips if flip == 1)
+    tails = coin_count - heads
+    symbols = tuple(spec.coin_heads_label if flip == 1 else spec.coin_tails_label for flip in flips)
+    total: int | float = heads + modifier_value
+    noun = "coin" if coin_count == 1 else "coins"
+    faces_str = ",".join(symbols) if symbols else "none"
+    desc = f"{coin_count} {noun}[{faces_str}] -> {heads} {spec.coin_heads_label}"
+    if modifier_value:
+        desc += f" + mod({modifier_value}) = {total}"
+    return tuple(flips), tuple(flips), heads, tails, symbols, total, desc
+
+
 def _resolve_step_dice(
     spec: RandomizerSpec,
     rng: DeterministicRngStream,
@@ -286,13 +311,15 @@ def resolve_randomizer(
     tiers: Sequence[OutcomeTier] = (),
     wager_bonus: int | float = 0,
 ) -> tuple[RollResult, dict[str, DeckRuntimeState]]:
-    """Resolve any of the 6 Ruleset VM randomizer types and match OutcomeTiers."""
+    """Resolve any of the 7 Ruleset VM randomizer types and match OutcomeTiers."""
     pos_before = rng.position
     next_decks: dict[str, DeckRuntimeState] = dict(deck_states or {})
 
     raw_rolls: tuple[int, ...] = ()
     kept_rolls: tuple[int, ...] = ()
     hits: int | None = None
+    heads_count: int | None = None
+    tails_count: int | None = None
     is_glitch = False
     symbols: tuple[str, ...] = ()
     drawn_cards: tuple[str, ...] = ()
@@ -318,6 +345,11 @@ def resolve_randomizer(
         raw_rolls, kept_rolls, total, symbols, breakdown = _resolve_step_dice(
             spec, rng, eval_ctx, modifier_value
         )
+    elif spec.kind == "coin_flip":
+        raw_rolls, kept_rolls, heads_count, tails_count, symbols, total, breakdown = (
+            _resolve_coin_flip(spec, rng, eval_ctx, modifier_value)
+        )
+        hits = heads_count
     elif spec.kind == "card_deck":
         if spec.deck_id is None or not deck_specs or spec.deck_id not in deck_specs:
             raise FormulaError("RPG-E2002", f"Missing card deck definition for '{spec.deck_id}'")
@@ -341,6 +373,8 @@ def resolve_randomizer(
         "modifier": modifier_value,
         "target": target_value if target_value is not None else 0,
         "hits": hits if hits is not None else 0,
+        "heads": heads_count if heads_count is not None else 0,
+        "tails": tails_count if tails_count is not None else 0,
         "is_glitch": is_glitch,
         "raw_min": raw_min,
         "raw_max": raw_max,
@@ -360,6 +394,8 @@ def resolve_randomizer(
         modifier=modifier_value,
         total=total,
         hits=hits,
+        heads_count=heads_count,
+        tails_count=tails_count,
         is_glitch=is_glitch,
         symbols=symbols,
         drawn_cards=drawn_cards,

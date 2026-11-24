@@ -604,6 +604,18 @@
           "default": 0,
           "title": "Base Value"
         },
+        "coin_heads_label": {
+          "default": "heads",
+          "minLength": 1,
+          "title": "Coin Heads Label",
+          "type": "string"
+        },
+        "coin_tails_label": {
+          "default": "tails",
+          "minLength": 1,
+          "title": "Coin Tails Label",
+          "type": "string"
+        },
         "deck_id": {
           "anyOf": [
             {
@@ -668,6 +680,7 @@
             "dice_formula",
             "dice_pool",
             "step_dice",
+            "coin_flip",
             "card_deck",
             "resource_wager",
             "none"

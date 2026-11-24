@@ -124,3 +124,30 @@ def test_event_replay_hash_always_matches_live_execution(seed: str, steps: int) 
 
     replayed = replay_events(ruleset, initial, all_events)
     assert state_hash(replayed) == state_hash(cur)
+
+
+@pytest.mark.zero_ai
+@given(
+    seed=st.text(min_size=1, max_size=24),
+    count=st.integers(min_value=1, max_value=30),
+)
+def test_coin_flip_counts_bounds_and_determinism(seed: str, count: int) -> None:
+    """Pooled coin flips preserve total coin count and replay deterministically."""
+    spec = RandomizerSpec(
+        kind="coin_flip",
+        pool_size_formula=str(count),
+        coin_heads_label="Crown",
+        coin_tails_label="Skull",
+    )
+    rng_1 = DeterministicRngStream(seed=seed, stream_name="coins")
+    rng_2 = DeterministicRngStream(seed=seed, stream_name="coins")
+
+    res_1, _ = resolve_randomizer(spec, rng_1, {})
+    res_2, _ = resolve_randomizer(spec, rng_2, {})
+
+    assert res_1 == res_2
+    assert res_1.heads_count is not None
+    assert res_1.tails_count is not None
+    assert 0 <= res_1.heads_count <= count
+    assert res_1.heads_count + res_1.tails_count == count
+    assert len(res_1.symbols) == count

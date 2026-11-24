@@ -167,3 +167,49 @@ def test_step_dice_symbols_card_deck_wager_and_none() -> None:
     )
     assert none_res.total == 3
     assert rng.position == pos_before
+
+
+@pytest.mark.zero_ai
+def test_coin_flip_single_pool_custom_labels_and_tiers() -> None:
+    """coin_flip supports single flips, AST coin pools, custom labels, and @roll.heads."""
+    single_spec = RandomizerSpec(kind="coin_flip", pool_size_formula="1")
+    rng_a = SceneRngRegistry("coin-seed").stream("coin")
+    rng_b = SceneRngRegistry("coin-seed").stream("coin")
+
+    single_a, _ = resolve_randomizer(single_spec, rng_a, {})
+    single_b, _ = resolve_randomizer(single_spec, rng_b, {})
+    assert single_a == single_b
+    assert single_a.kind == "coin_flip"
+    assert single_a.heads_count is not None
+    assert single_a.tails_count is not None
+    assert single_a.heads_count + single_a.tails_count == 1
+    assert single_a.symbols in {("heads",), ("tails",)}
+
+    pool_spec = RandomizerSpec(
+        kind="coin_flip",
+        pool_size_formula="@self.resolve",
+        coin_heads_label="Sun",
+        coin_tails_label="Moon",
+    )
+    tiers = (
+        OutcomeTier(
+            tier_id="solar_favor",
+            label="Solar Favor",
+            condition="@roll.heads >= 2 && contains(@roll.symbols, 'Sun')",
+        ),
+        OutcomeTier(tier_id="twilight", label="Twilight", condition="true"),
+    )
+    pool_res, _ = resolve_randomizer(
+        pool_spec,
+        rng_a,
+        {"@self": {"resolve": 4}},
+        modifier_value=1,
+        tiers=tiers,
+    )
+    assert pool_res.heads_count is not None
+    assert pool_res.tails_count is not None
+    assert pool_res.heads_count + pool_res.tails_count == 4
+    assert len(pool_res.symbols) == 4
+    assert set(pool_res.symbols).issubset({"Sun", "Moon"})
+    assert pool_res.total == pool_res.heads_count + 1
+    assert ("Solar Favor" if pool_res.heads_count >= 2 else "Twilight") == pool_res.tier_label

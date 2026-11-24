@@ -783,6 +783,9 @@ def execute_action(
             {
                 "total": roll_result.total,
                 "hits": roll_result.hits if roll_result.hits is not None else 0,
+                "heads": roll_result.heads_count if roll_result.heads_count is not None else 0,
+                "tails": roll_result.tails_count if roll_result.tails_count is not None else 0,
+                "symbols": roll_result.symbols,
                 "is_glitch": roll_result.is_glitch,
                 "tier_id": roll_result.tier_id,
             }

@@ -20,6 +20,7 @@ RandomizerKind = Literal[
     "dice_formula",
     "dice_pool",
     "step_dice",
+    "coin_flip",
     "card_deck",
     "resource_wager",
     "none",
@@ -109,6 +110,8 @@ class RandomizerSpec(BaseModel):
     wild_die_sides: int | None = Field(default=None, ge=2, le=100)
     explode: bool = False
     face_symbols: dict[int, tuple[str, ...]] = Field(default_factory=_empty_face_symbols)
+    coin_heads_label: str = Field(default="heads", min_length=1)
+    coin_tails_label: str = Field(default="tails", min_length=1)
     deck_id: str | None = None
     draw_count: int = Field(default=1, ge=1, le=52)
     reshuffle_on_empty: bool = True
@@ -293,6 +296,11 @@ class RulesetSchema(BaseModel):
                         parse_formula(expr)
                     except FormulaError as exc:
                         errors.append(f"Resolution '{mech_id}' {field_label}: {exc.message}")
+            if mech.randomizer.kind in {"dice_pool", "coin_flip"}:
+                try:
+                    parse_formula(mech.randomizer.pool_size_formula)
+                except FormulaError as exc:
+                    errors.append(f"Resolution '{mech_id}' pool_size_formula: {exc.message}")
             if mech.randomizer.kind == "card_deck" and (
                 mech.randomizer.deck_id is None or mech.randomizer.deck_id not in self.decks
             ):
