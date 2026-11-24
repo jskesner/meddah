@@ -90,6 +90,7 @@ VmEventType = Literal[
     "FLOW_UPDATED",
     "DECK_UPDATED",
     "RNG_ADVANCED",
+    "CHARACTER_ADVANCED",
     "SHEET_OVERRIDE",
     "MODULE_OVERRIDE",
     "MESSAGE_EMITTED",
@@ -392,6 +393,46 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
         updated_entities = dict(state.entities)
         updated_entities[entity_id] = entity.model_copy(
             update={"base_properties": updated_props, "pools": updated_pools}
+        )
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
+    if event.event_type == "CHARACTER_ADVANCED":
+        entity_id = str(payload["entity_id"])
+        entity = state.entities[entity_id]
+        updated_props = dict(entity.base_properties)
+        raw_prop_up = payload.get("property_updates", {})
+        if isinstance(raw_prop_up, Mapping):
+            prop_map = cast(Mapping[object, object], raw_prop_up)
+            for k, v in prop_map.items():
+                updated_props[str(k)] = _as_scalar_value(v, f"advance:{k}")
+        updated_pools = dict(entity.pools)
+        raw_pool_up = payload.get("pool_updates", {})
+        if isinstance(raw_pool_up, Mapping):
+            pool_map = cast(Mapping[object, object], raw_pool_up)
+            for k, v in pool_map.items():
+                updated_pools[str(k)] = _as_int_value(v, f"advance_pool:{k}")
+        tags_set = set(entity.tags)
+        raw_added_tags = payload.get("added_tags", ())
+        if isinstance(raw_added_tags, Sequence) and not isinstance(raw_added_tags, str):
+            for tag_item in cast(Sequence[object], raw_added_tags):
+                tags_set.add(str(tag_item))
+        raw_removed_tags = payload.get("removed_tags", ())
+        if isinstance(raw_removed_tags, Sequence) and not isinstance(raw_removed_tags, str):
+            for tag_item in cast(Sequence[object], raw_removed_tags):
+                tags_set.discard(str(tag_item))
+        actions_set = set(entity.granted_actions)
+        raw_actions = payload.get("added_actions", ())
+        if isinstance(raw_actions, Sequence) and not isinstance(raw_actions, str):
+            for act_item in cast(Sequence[object], raw_actions):
+                actions_set.add(str(act_item))
+        updated_entities = dict(state.entities)
+        updated_entities[entity_id] = entity.model_copy(
+            update={
+                "base_properties": updated_props,
+                "pools": updated_pools,
+                "tags": tuple(sorted(tags_set)),
+                "granted_actions": tuple(sorted(actions_set)),
+            }
         )
         return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
 

@@ -1,0 +1,624 @@
+{
+  "$defs": {
+    "ArchetypeOption": {
+      "additionalProperties": false,
+      "description": "Tier-up archetype or multiclass option gated by AST prerequisites.",
+      "properties": {
+        "granted_actions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Actions",
+          "type": "array"
+        },
+        "granted_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Tags",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "option_id": {
+          "minLength": 1,
+          "title": "Option Id",
+          "type": "string"
+        },
+        "property_bonuses": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Property Bonuses",
+          "type": "object"
+        },
+        "requires": {
+          "default": "true",
+          "title": "Requires",
+          "type": "string"
+        }
+      },
+      "required": [
+        "option_id",
+        "label"
+      ],
+      "title": "ArchetypeOption",
+      "type": "object"
+    },
+    "DiegeticTrainingParadigmSpec": {
+      "additionalProperties": false,
+      "description": "Paradigm 5: Diegetic In-World Training, Manuals & Augmentations.",
+      "properties": {
+        "paradigm": {
+          "const": "diegetic_training",
+          "default": "diegetic_training",
+          "title": "Paradigm",
+          "type": "string"
+        },
+        "techniques": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TrainingTechniqueSpec"
+          },
+          "title": "Techniques",
+          "type": "object"
+        }
+      },
+      "title": "DiegeticTrainingParadigmSpec",
+      "type": "object"
+    },
+    "LevelTierGrant": {
+      "additionalProperties": false,
+      "description": "Mechanical grants unlocked upon reaching a specific tier/milestone.",
+      "properties": {
+        "granted_actions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Actions",
+          "type": "array"
+        },
+        "granted_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Tags",
+          "type": "array"
+        },
+        "pool_max_bonuses": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Pool Max Bonuses",
+          "type": "object"
+        },
+        "property_bonuses": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Property Bonuses",
+          "type": "object"
+        },
+        "tier": {
+          "minimum": 1,
+          "title": "Tier",
+          "type": "integer"
+        },
+        "xp_required": {
+          "minimum": 0,
+          "title": "Xp Required",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tier",
+        "xp_required"
+      ],
+      "title": "LevelTierGrant",
+      "type": "object"
+    },
+    "LevelUpParadigmSpec": {
+      "additionalProperties": false,
+      "description": "Paradigm 1: Tiered Level & Milestone Progression.",
+      "properties": {
+        "archetype_options": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ArchetypeOption"
+          },
+          "title": "Archetype Options",
+          "type": "array"
+        },
+        "paradigm": {
+          "const": "level_up_graph",
+          "default": "level_up_graph",
+          "title": "Paradigm",
+          "type": "string"
+        },
+        "tiers": {
+          "items": {
+            "$ref": "#/$defs/LevelTierGrant"
+          },
+          "minItems": 1,
+          "title": "Tiers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tiers"
+      ],
+      "title": "LevelUpParadigmSpec",
+      "type": "object"
+    },
+    "PlaybookTriggersParadigmSpec": {
+      "additionalProperties": false,
+      "description": "Paradigm 4: Narrative Playbook XP Triggers & Clock Wrapping (PbtA / FitD style).",
+      "properties": {
+        "advancement_threshold": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Advancement Threshold",
+          "type": "integer"
+        },
+        "paradigm": {
+          "const": "playbook_triggers",
+          "default": "playbook_triggers",
+          "title": "Paradigm",
+          "type": "string"
+        },
+        "triggers": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Triggers",
+          "type": "array"
+        },
+        "xp_clock_pool_id": {
+          "default": "playbook_xp",
+          "title": "Xp Clock Pool Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "triggers"
+      ],
+      "title": "PlaybookTriggersParadigmSpec",
+      "type": "object"
+    },
+    "RandomizerSpec": {
+      "additionalProperties": false,
+      "description": "Declarative specification of dice, pool, step-die, deck, wager, or diceless rolls.",
+      "properties": {
+        "base_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 0,
+          "title": "Base Value"
+        },
+        "coin_heads_label": {
+          "default": "heads",
+          "minLength": 1,
+          "title": "Coin Heads Label",
+          "type": "string"
+        },
+        "coin_tails_label": {
+          "default": "tails",
+          "minLength": 1,
+          "title": "Coin Tails Label",
+          "type": "string"
+        },
+        "deck_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deck Id"
+        },
+        "die_sides": {
+          "default": 6,
+          "maximum": 1000,
+          "minimum": 2,
+          "title": "Die Sides",
+          "type": "integer"
+        },
+        "draw_count": {
+          "default": 1,
+          "maximum": 52,
+          "minimum": 1,
+          "title": "Draw Count",
+          "type": "integer"
+        },
+        "explode": {
+          "default": false,
+          "title": "Explode",
+          "type": "boolean"
+        },
+        "face_symbols": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Face Symbols",
+          "type": "object"
+        },
+        "formula": {
+          "default": "",
+          "title": "Formula",
+          "type": "string"
+        },
+        "glitch_face": {
+          "default": 1,
+          "title": "Glitch Face",
+          "type": "integer"
+        },
+        "glitch_ratio": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Glitch Ratio",
+          "type": "number"
+        },
+        "kind": {
+          "default": "dice_formula",
+          "enum": [
+            "dice_formula",
+            "dice_pool",
+            "step_dice",
+            "coin_flip",
+            "card_deck",
+            "resource_wager",
+            "none"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "pool_size_formula": {
+          "default": "1",
+          "title": "Pool Size Formula",
+          "type": "string"
+        },
+        "reshuffle_on_empty": {
+          "default": true,
+          "title": "Reshuffle On Empty",
+          "type": "boolean"
+        },
+        "step_die_formula": {
+          "default": "",
+          "title": "Step Die Formula",
+          "type": "string"
+        },
+        "success_threshold": {
+          "default": 5,
+          "title": "Success Threshold",
+          "type": "integer"
+        },
+        "wild_die_sides": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wild Die Sides"
+        }
+      },
+      "title": "RandomizerSpec",
+      "type": "object"
+    },
+    "SkillTicksParadigmSpec": {
+      "additionalProperties": false,
+      "description": "Paradigm 3: Usage-Driven Skill Ticks & Roll-to-Improve (BRP / d100 style).",
+      "properties": {
+        "check_roll": {
+          "$ref": "#/$defs/RandomizerSpec"
+        },
+        "gain_roll": {
+          "$ref": "#/$defs/RandomizerSpec"
+        },
+        "max_skill_value": {
+          "default": 100,
+          "minimum": 1,
+          "title": "Max Skill Value",
+          "type": "integer"
+        },
+        "paradigm": {
+          "const": "skill_usage_ticks",
+          "default": "skill_usage_ticks",
+          "title": "Paradigm",
+          "type": "string"
+        },
+        "tick_tag_prefix": {
+          "default": "skill_tick:",
+          "title": "Tick Tag Prefix",
+          "type": "string"
+        }
+      },
+      "title": "SkillTicksParadigmSpec",
+      "type": "object"
+    },
+    "TrainingTechniqueSpec": {
+      "additionalProperties": false,
+      "description": "Technique or upgrade unlocked via in-world trainer, facility, ticks, and fee.",
+      "properties": {
+        "currency_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Currency Cost",
+          "type": "integer"
+        },
+        "granted_actions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Actions",
+          "type": "array"
+        },
+        "granted_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Tags",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "property_bonuses": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Property Bonuses",
+          "type": "object"
+        },
+        "required_downtime_ticks": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Required Downtime Ticks",
+          "type": "integer"
+        },
+        "required_facility_tag": {
+          "default": "",
+          "title": "Required Facility Tag",
+          "type": "string"
+        },
+        "required_trainer_tag": {
+          "default": "",
+          "title": "Required Trainer Tag",
+          "type": "string"
+        },
+        "requires": {
+          "default": "true",
+          "title": "Requires",
+          "type": "string"
+        },
+        "technique_id": {
+          "minLength": 1,
+          "title": "Technique Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "technique_id",
+        "label"
+      ],
+      "title": "TrainingTechniqueSpec",
+      "type": "object"
+    },
+    "XpStoreEntry": {
+      "additionalProperties": false,
+      "description": "Purchasable advance in a Classless XP / Karma Store or Playbook.",
+      "properties": {
+        "cost_formula": {
+          "default": "0",
+          "title": "Cost Formula",
+          "type": "string"
+        },
+        "entry_id": {
+          "minLength": 1,
+          "title": "Entry Id",
+          "type": "string"
+        },
+        "granted_actions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Actions",
+          "type": "array"
+        },
+        "granted_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Tags",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "max_rank": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Rank"
+        },
+        "property_step": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 1,
+          "title": "Property Step"
+        },
+        "requires": {
+          "default": "true",
+          "title": "Requires",
+          "type": "string"
+        },
+        "target_property": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Property"
+        }
+      },
+      "required": [
+        "entry_id",
+        "label"
+      ],
+      "title": "XpStoreEntry",
+      "type": "object"
+    },
+    "XpStoreParadigmSpec": {
+      "additionalProperties": false,
+      "description": "Paradigm 2: Classless XP / Karma Point-Buy Store.",
+      "properties": {
+        "entries": {
+          "additionalProperties": {
+            "$ref": "#/$defs/XpStoreEntry"
+          },
+          "title": "Entries",
+          "type": "object"
+        },
+        "paradigm": {
+          "const": "xp_store",
+          "default": "xp_store",
+          "title": "Paradigm",
+          "type": "string"
+        }
+      },
+      "title": "XpStoreParadigmSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Declarative bundle of supported progression paradigms in a ruleset.",
+  "properties": {
+    "diegetic_training": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DiegeticTrainingParadigmSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "level_up": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LevelUpParadigmSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "playbook_triggers": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlaybookTriggersParadigmSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "skill_ticks": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SkillTicksParadigmSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "xp_store": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/XpStoreParadigmSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "title": "AdvancementGraphSpec",
+  "type": "object"
+}

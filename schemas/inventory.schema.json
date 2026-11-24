@@ -1,0 +1,503 @@
+{
+  "$defs": {
+    "CapacityRule": {
+      "additionalProperties": false,
+      "description": "Capacity constraints for a root character inventory or nested container item.",
+      "properties": {
+        "grid_height": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Grid Height",
+          "type": "integer"
+        },
+        "grid_width": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Grid Width",
+          "type": "integer"
+        },
+        "load_tiers": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Load Tiers",
+          "type": "object"
+        },
+        "max_slots": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Slots"
+        },
+        "max_weight": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Weight"
+        },
+        "max_weight_formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Weight Formula"
+        },
+        "mode": {
+          "default": "unlimited",
+          "enum": [
+            "weight",
+            "slots",
+            "grid_2d",
+            "abstract_load",
+            "unlimited"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "selected_load_tier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Load Tier"
+        },
+        "weightless_children": {
+          "default": false,
+          "title": "Weightless Children",
+          "type": "boolean"
+        }
+      },
+      "title": "CapacityRule",
+      "type": "object"
+    },
+    "GridPlacement": {
+      "additionalProperties": false,
+      "description": "Top-left 2D cell coordinate inside a grid_2d container.",
+      "properties": {
+        "rotated": {
+          "default": false,
+          "title": "Rotated",
+          "type": "boolean"
+        },
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "GridPlacement",
+      "type": "object"
+    },
+    "ItemNode": {
+      "additionalProperties": false,
+      "description": "Unified item, wearable garment/armor, attachment, or container node.",
+      "properties": {
+        "attachable_nodes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Attachable Nodes",
+          "type": "array"
+        },
+        "aura_active_when": {
+          "default": "equipped",
+          "enum": [
+            "equipped",
+            "carried"
+          ],
+          "title": "Aura Active When",
+          "type": "string"
+        },
+        "concealable": {
+          "default": false,
+          "title": "Concealable",
+          "type": "boolean"
+        },
+        "container_capacity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CapacityRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "granted_actions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Actions",
+          "type": "array"
+        },
+        "grid_height": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Grid Height",
+          "type": "integer"
+        },
+        "grid_width": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Grid Width",
+          "type": "integer"
+        },
+        "item_id": {
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "load_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Load Cost",
+          "type": "integer"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "passive_aura_modifiers": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "title": "Passive Aura Modifiers",
+          "type": "object"
+        },
+        "quantity": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "slot_size": {
+          "default": 1,
+          "minimum": 0,
+          "title": "Slot Size",
+          "type": "integer"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "template_id": {
+          "minLength": 1,
+          "title": "Template Id",
+          "type": "string"
+        },
+        "unit_weight": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Unit Weight",
+          "type": "number"
+        },
+        "wearable": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WearableLayerSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "item_id",
+        "template_id",
+        "name"
+      ],
+      "title": "ItemNode",
+      "type": "object"
+    },
+    "OutfitPreset": {
+      "additionalProperties": false,
+      "description": "Saved named apparel and equipped loadout snapshot.",
+      "properties": {
+        "equipped_attachments": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Equipped Attachments",
+          "type": "object"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "preset_id": {
+          "minLength": 1,
+          "title": "Preset Id",
+          "type": "string"
+        },
+        "worn_item_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Worn Item Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "preset_id",
+        "label"
+      ],
+      "title": "OutfitPreset",
+      "type": "object"
+    },
+    "WearableLayerSpec": {
+      "additionalProperties": false,
+      "description": "Anatomical coverage and stacking semantics for clothing, cosmetics, gear, or armor.",
+      "properties": {
+        "appearance_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Appearance Tags",
+          "type": "array"
+        },
+        "climate_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Climate Tags",
+          "type": "array"
+        },
+        "conceals_inner_layers": {
+          "default": false,
+          "title": "Conceals Inner Layers",
+          "type": "boolean"
+        },
+        "covered_locations": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Covered Locations",
+          "type": "array"
+        },
+        "doff_action_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Doff Action Cost",
+          "type": "integer"
+        },
+        "don_action_cost": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Don Action Cost",
+          "type": "integer"
+        },
+        "is_cosmetic_transmog": {
+          "default": false,
+          "title": "Is Cosmetic Transmog",
+          "type": "boolean"
+        },
+        "layer_id": {
+          "minLength": 1,
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "mitigation_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 0,
+          "title": "Mitigation Value"
+        }
+      },
+      "required": [
+        "layer_id",
+        "covered_locations"
+      ],
+      "title": "WearableLayerSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Composable container graph plus universal anatomical apparel/equipment stacking.",
+  "properties": {
+    "attachment_nodes": {
+      "default": [
+        "main_hand",
+        "off_hand",
+        "utility_1",
+        "backpack"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Attachment Nodes",
+      "type": "array"
+    },
+    "attachments": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Attachments",
+      "type": "object"
+    },
+    "body_locations": {
+      "default": [
+        "head",
+        "face",
+        "neck",
+        "shoulders",
+        "torso",
+        "left_arm",
+        "right_arm",
+        "hands",
+        "waist",
+        "legs",
+        "feet"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Body Locations",
+      "type": "array"
+    },
+    "cosmetic_transmog_enabled": {
+      "default": false,
+      "title": "Cosmetic Transmog Enabled",
+      "type": "boolean"
+    },
+    "grid_placements": {
+      "additionalProperties": {
+        "$ref": "#/$defs/GridPlacement"
+      },
+      "title": "Grid Placements",
+      "type": "object"
+    },
+    "items": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ItemNode"
+      },
+      "title": "Items",
+      "type": "object"
+    },
+    "layer_order": {
+      "default": [
+        "base_undergarment",
+        "inner_clothing",
+        "mid_layer",
+        "protective_armor",
+        "outer_garment",
+        "accessory_and_cosmetic"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Layer Order",
+      "type": "array"
+    },
+    "layering_mode": {
+      "default": "abstract_slots",
+      "enum": [
+        "abstract_slots",
+        "anatomical_layered"
+      ],
+      "title": "Layering Mode",
+      "type": "string"
+    },
+    "outfit_presets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/OutfitPreset"
+      },
+      "title": "Outfit Presets",
+      "type": "object"
+    },
+    "parent_container": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "title": "Parent Container",
+      "type": "object"
+    },
+    "root_capacity": {
+      "$ref": "#/$defs/CapacityRule"
+    },
+    "transmog_overrides": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Transmog Overrides",
+      "type": "object"
+    },
+    "worn_items": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Worn Items",
+      "type": "array"
+    }
+  },
+  "title": "InventoryGraphState",
+  "type": "object"
+}

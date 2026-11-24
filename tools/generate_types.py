@@ -14,10 +14,18 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.ruleset_vm import PackageManifest, RulesetSchema, VmEvent  # noqa: E402
+from app.ruleset_vm import (  # noqa: E402
+    AdvancementGraphSpec,
+    InventoryGraphState,
+    PackageManifest,
+    RulesetSchema,
+    VmEvent,
+)
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
+    "advancement": AdvancementGraphSpec,
     "event": VmEvent,
+    "inventory": InventoryGraphState,
     "manifest": PackageManifest,
     "ruleset": RulesetSchema,
 }

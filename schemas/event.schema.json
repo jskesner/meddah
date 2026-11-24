@@ -31,6 +31,7 @@
         "FLOW_UPDATED",
         "DECK_UPDATED",
         "RNG_ADVANCED",
+        "CHARACTER_ADVANCED",
         "SHEET_OVERRIDE",
         "MODULE_OVERRIDE",
         "MESSAGE_EMITTED"
