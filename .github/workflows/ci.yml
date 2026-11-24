@@ -33,18 +33,55 @@ jobs:
             exit 1
           fi
 
-      - name: Verify design docs contain no local host file URIs
+      - name: Verify design docs & ADRs contain no local host file URIs
         run: |
-          if grep -rn 'file:///' docs/design/; then
-            echo "Found non-portable file:/// URI inside docs/design/"
+          if grep -rn 'file:///' docs/design/ docs/adr/; then
+            echo "Found non-portable file:/// URI inside docs/"
             exit 1
           fi
 
-  # Phase 1+ gates (backend/ & desktop/ CI jobs activate as Phase 1 and Phase 6 land):
-  # - ruff format --check && ruff check && pyright
-  # - python tools/lint_agnosticism.py && python tools/lint_modularity.py
-  # - lint-imports (backend/.importlinter)
-  # - python tools/generate_types.py --check
-  # - pytest -m zero_ai && pytest backend/tests/conformance/ && pytest backend/tests/perf/
-  # - pnpm eslint . && pnpm tsc --noEmit && pnpm test:a11y (axe-core)
-  # - python tools/roadmap.py --check
+  backend-quality:
+    name: Backend Quality, Linters & Zero-AI Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python & sync dependencies
+        run: uv sync --directory backend --frozen
+
+      - name: Check Python formatting (ruff format)
+        run: uv run --directory backend ruff format --check app tests ../tools
+
+      - name: Check Python lints (ruff check)
+        run: uv run --directory backend ruff check app tests ../tools
+
+      - name: Run static type checking (pyright)
+        run: uv run --directory backend pyright
+
+      - name: Verify Zero-Assumption Agnosticism (Golden Rule #1)
+        run: uv run --directory backend python ../tools/lint_agnosticism.py
+
+      - name: Verify Modularity & RAW Defaults (Golden Rule #4)
+        run: uv run --directory backend python ../tools/lint_modularity.py
+
+      - name: Enforce layer boundary contracts (import-linter)
+        run: uv run --directory backend lint-imports
+
+      - name: Verify JSON Schemas match Pydantic models
+        run: uv run --directory backend python ../tools/generate_types.py --check
+
+      - name: Verify ROADMAP.md structure & links
+        run: uv run --directory backend python ../tools/roadmap.py --check
+
+      - name: Run Zero-AI Deterministic Test Suite
+        run: uv run --directory backend pytest -m zero_ai
+
+      - name: Run Full Backend Test Suite
+        run: uv run --directory backend pytest
