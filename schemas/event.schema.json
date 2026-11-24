@@ -1,0 +1,53 @@
+{
+  "additionalProperties": false,
+  "description": "Immutable append-only event record representing an atomic VM state transition.",
+  "properties": {
+    "actor_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Actor Id"
+    },
+    "event_id": {
+      "minLength": 1,
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "ACTION_EXECUTED",
+        "REACTION_OPENED",
+        "REACTION_RESOLVED",
+        "POOL_MODIFIED",
+        "PROPERTY_SET",
+        "CONDITION_CHANGED",
+        "CLOCK_ADVANCED",
+        "FLOW_UPDATED",
+        "DECK_UPDATED",
+        "RNG_ADVANCED",
+        "SHEET_OVERRIDE",
+        "MODULE_OVERRIDE",
+        "MESSAGE_EMITTED"
+      ],
+      "title": "Event Type",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type"
+  ],
+  "title": "VmEvent",
+  "type": "object"
+}

@@ -1,0 +1,930 @@
+{
+  "$defs": {
+    "ActionBlock": {
+      "additionalProperties": false,
+      "description": "Player or NPC capability/action/stance/reaction executed through the VM.",
+      "properties": {
+        "action_id": {
+          "minLength": 1,
+          "title": "Action Id",
+          "type": "string"
+        },
+        "allow_reactions": {
+          "default": false,
+          "title": "Allow Reactions",
+          "type": "boolean"
+        },
+        "category": {
+          "default": "action",
+          "enum": [
+            "action",
+            "power",
+            "reaction",
+            "stance"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "default_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EffectSpec"
+          },
+          "title": "Default Effects",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "modifier_override_formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modifier Override Formula"
+        },
+        "pool_costs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Pool Costs",
+          "type": "object"
+        },
+        "requires": {
+          "default": "true",
+          "title": "Requires",
+          "type": "string"
+        },
+        "requires_target": {
+          "default": false,
+          "title": "Requires Target",
+          "type": "boolean"
+        },
+        "resolution_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution Id"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "target_override_formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Override Formula"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger"
+        }
+      },
+      "required": [
+        "action_id",
+        "label"
+      ],
+      "title": "ActionBlock",
+      "type": "object"
+    },
+    "ConditionBlock": {
+      "additionalProperties": false,
+      "description": "Status condition with declarative property deltas and capability gating tags.",
+      "properties": {
+        "blocks_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocks Tags",
+          "type": "array"
+        },
+        "condition_id": {
+          "minLength": 1,
+          "title": "Condition Id",
+          "type": "string"
+        },
+        "default_duration_turns": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Duration Turns"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "persistent_flag": {
+          "default": false,
+          "title": "Persistent Flag",
+          "type": "boolean"
+        },
+        "property_modifiers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Property Modifiers",
+          "type": "object"
+        },
+        "visual_priority": {
+          "default": 0,
+          "title": "Visual Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "condition_id",
+        "label"
+      ],
+      "title": "ConditionBlock",
+      "type": "object"
+    },
+    "DeckSpec": {
+      "additionalProperties": false,
+      "description": "Named card deck specification supporting multiple gameplay scopes.",
+      "properties": {
+        "card_values": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Card Values",
+          "type": "object"
+        },
+        "cards": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Cards",
+          "type": "array"
+        },
+        "deck_id": {
+          "minLength": 1,
+          "title": "Deck Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "scope": {
+          "default": "table_shared",
+          "enum": [
+            "table_shared",
+            "per_entity",
+            "encounter_local"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deck_id",
+        "label",
+        "cards"
+      ],
+      "title": "DeckSpec",
+      "type": "object"
+    },
+    "EffectSpec": {
+      "additionalProperties": false,
+      "description": "Deterministic state mutation emitted by actions, tiers, or ECA event hooks.",
+      "properties": {
+        "duration_turns": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Turns"
+        },
+        "formula": {
+          "default": "0",
+          "title": "Formula",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "modify_pool",
+            "set_property",
+            "add_condition",
+            "remove_condition",
+            "advance_clock",
+            "emit_message"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_key": {
+          "default": "",
+          "title": "Target Key",
+          "type": "string"
+        },
+        "target_scope": {
+          "default": "target",
+          "enum": [
+            "self",
+            "target",
+            "scene"
+          ],
+          "title": "Target Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "EffectSpec",
+      "type": "object"
+    },
+    "EventHookBlock": {
+      "additionalProperties": false,
+      "description": "Declarative Event-Condition-Action (ECA) hook bound to VM lifecycle events.",
+      "properties": {
+        "condition": {
+          "default": "true",
+          "title": "Condition",
+          "type": "string"
+        },
+        "effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EffectSpec"
+          },
+          "title": "Effects",
+          "type": "array"
+        },
+        "event_name": {
+          "minLength": 1,
+          "title": "Event Name",
+          "type": "string"
+        },
+        "hook_id": {
+          "minLength": 1,
+          "title": "Hook Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hook_id",
+        "event_name"
+      ],
+      "title": "EventHookBlock",
+      "type": "object"
+    },
+    "FlowConfig": {
+      "additionalProperties": false,
+      "description": "Pluggable turn/time flow configuration for a ruleset.",
+      "properties": {
+        "default_mode": {
+          "default": "freeform",
+          "enum": [
+            "freeform",
+            "round_initiative",
+            "popcorn_spotlight"
+          ],
+          "title": "Default Mode",
+          "type": "string"
+        },
+        "initiative_formula": {
+          "default": "0",
+          "title": "Initiative Formula",
+          "type": "string"
+        },
+        "turn_pool_resets": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Turn Pool Resets",
+          "type": "array"
+        }
+      },
+      "title": "FlowConfig",
+      "type": "object"
+    },
+    "OutcomeTier": {
+      "additionalProperties": false,
+      "description": "Ordered outcome predicate and resulting effects for a resolution mechanic.",
+      "properties": {
+        "condition": {
+          "minLength": 1,
+          "title": "Condition",
+          "type": "string"
+        },
+        "effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EffectSpec"
+          },
+          "title": "Effects",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "tier_id": {
+          "minLength": 1,
+          "title": "Tier Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tier_id",
+        "label",
+        "condition"
+      ],
+      "title": "OutcomeTier",
+      "type": "object"
+    },
+    "PackageManifest": {
+      "additionalProperties": false,
+      "description": "Authoritative metadata header for portable Meddah archives.",
+      "properties": {
+        "authors": {
+          "default": [],
+          "description": "Package authors or maintainers.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Authors",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "description": "Optional short description of the package contents.",
+          "title": "Description",
+          "type": "string"
+        },
+        "license": {
+          "default": "All Rights Reserved",
+          "description": "Creator license identifier for this user data package.",
+          "title": "License",
+          "type": "string"
+        },
+        "name": {
+          "description": "Human-readable package display name.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "package_id": {
+          "description": "Stable slug identifier for the packaged resource.",
+          "minLength": 1,
+          "title": "Package Id",
+          "type": "string"
+        },
+        "package_type": {
+          "description": "Archive kind (.rpgrules, .rpgworld, .rpgcampaign, etc.).",
+          "enum": [
+            "ruleset",
+            "world",
+            "campaign",
+            "character",
+            "tileset",
+            "theme",
+            "profile",
+            "competition"
+          ],
+          "title": "Package Type",
+          "type": "string"
+        },
+        "ruleset_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHA-256 hash of the bound source ruleset schema.",
+          "title": "Ruleset Hash"
+        },
+        "schema_version": {
+          "default": "0.1.0",
+          "description": "Semantic version of the package archive format.",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "version": {
+          "description": "Creator-assigned semantic version of this package.",
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package_type",
+        "package_id",
+        "name",
+        "version"
+      ],
+      "title": "PackageManifest",
+      "type": "object"
+    },
+    "PropertyBlock": {
+      "additionalProperties": false,
+      "description": "Named attribute, derived statistic, or descriptive trait on an entity.",
+      "properties": {
+        "category": {
+          "default": "core",
+          "title": "Category",
+          "type": "string"
+        },
+        "default_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "title": "Default Value"
+        },
+        "formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional AST formula deriving this property from other entity properties.",
+          "title": "Formula"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "max_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Value"
+        },
+        "min_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Value"
+        },
+        "prop_id": {
+          "minLength": 1,
+          "title": "Prop Id",
+          "type": "string"
+        },
+        "tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "value_kind": {
+          "default": "int",
+          "enum": [
+            "int",
+            "float",
+            "bool",
+            "str",
+            "step_die"
+          ],
+          "title": "Value Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prop_id",
+        "label"
+      ],
+      "title": "PropertyBlock",
+      "type": "object"
+    },
+    "RandomizerSpec": {
+      "additionalProperties": false,
+      "description": "Declarative specification of dice, pool, step-die, deck, wager, or diceless rolls.",
+      "properties": {
+        "base_value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "default": 0,
+          "title": "Base Value"
+        },
+        "deck_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deck Id"
+        },
+        "die_sides": {
+          "default": 6,
+          "maximum": 1000,
+          "minimum": 2,
+          "title": "Die Sides",
+          "type": "integer"
+        },
+        "draw_count": {
+          "default": 1,
+          "maximum": 52,
+          "minimum": 1,
+          "title": "Draw Count",
+          "type": "integer"
+        },
+        "explode": {
+          "default": false,
+          "title": "Explode",
+          "type": "boolean"
+        },
+        "face_symbols": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Face Symbols",
+          "type": "object"
+        },
+        "formula": {
+          "default": "",
+          "title": "Formula",
+          "type": "string"
+        },
+        "glitch_face": {
+          "default": 1,
+          "title": "Glitch Face",
+          "type": "integer"
+        },
+        "glitch_ratio": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Glitch Ratio",
+          "type": "number"
+        },
+        "kind": {
+          "default": "dice_formula",
+          "enum": [
+            "dice_formula",
+            "dice_pool",
+            "step_dice",
+            "card_deck",
+            "resource_wager",
+            "none"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "pool_size_formula": {
+          "default": "1",
+          "title": "Pool Size Formula",
+          "type": "string"
+        },
+        "reshuffle_on_empty": {
+          "default": true,
+          "title": "Reshuffle On Empty",
+          "type": "boolean"
+        },
+        "step_die_formula": {
+          "default": "",
+          "title": "Step Die Formula",
+          "type": "string"
+        },
+        "success_threshold": {
+          "default": 5,
+          "title": "Success Threshold",
+          "type": "integer"
+        },
+        "wild_die_sides": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wild Die Sides"
+        }
+      },
+      "title": "RandomizerSpec",
+      "type": "object"
+    },
+    "ResolutionMechanicBlock": {
+      "additionalProperties": false,
+      "description": "Combines a randomizer, modifiers, target difficulty, and outcome tiers.",
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "mech_id": {
+          "minLength": 1,
+          "title": "Mech Id",
+          "type": "string"
+        },
+        "modifier_formula": {
+          "default": "0",
+          "title": "Modifier Formula",
+          "type": "string"
+        },
+        "opposed_mech_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Opposed Mech Id"
+        },
+        "randomizer": {
+          "$ref": "#/$defs/RandomizerSpec"
+        },
+        "resolution_mode": {
+          "default": "standard",
+          "enum": [
+            "standard",
+            "contested"
+          ],
+          "title": "Resolution Mode",
+          "type": "string"
+        },
+        "target_formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Formula"
+        },
+        "tiers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/OutcomeTier"
+          },
+          "title": "Tiers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mech_id",
+        "label",
+        "randomizer"
+      ],
+      "title": "ResolutionMechanicBlock",
+      "type": "object"
+    },
+    "ResourcePoolBlock": {
+      "additionalProperties": false,
+      "description": "Depletable/recoverable track or pool (vitality, stamina, stress, doom clock, etc.).",
+      "properties": {
+        "default_current": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "default": 0,
+          "title": "Default Current"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "max_formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Formula"
+        },
+        "min_value": {
+          "default": 0,
+          "title": "Min Value",
+          "type": "integer"
+        },
+        "pool_id": {
+          "minLength": 1,
+          "title": "Pool Id",
+          "type": "string"
+        },
+        "reset_on": {
+          "default": "manual",
+          "title": "Reset On",
+          "type": "string"
+        },
+        "track_segments": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Segments"
+        }
+      },
+      "required": [
+        "pool_id",
+        "label"
+      ],
+      "title": "ResourcePoolBlock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Top-level declarative schema compiled from .rpgrules or authoring studios.",
+  "properties": {
+    "actions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ActionBlock"
+      },
+      "title": "Actions",
+      "type": "object"
+    },
+    "conditions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ConditionBlock"
+      },
+      "title": "Conditions",
+      "type": "object"
+    },
+    "decks": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DeckSpec"
+      },
+      "title": "Decks",
+      "type": "object"
+    },
+    "declared_primitives": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Declared Primitives",
+      "type": "array"
+    },
+    "event_hooks": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EventHookBlock"
+      },
+      "title": "Event Hooks",
+      "type": "object"
+    },
+    "flow_config": {
+      "$ref": "#/$defs/FlowConfig"
+    },
+    "manifest": {
+      "$ref": "#/$defs/PackageManifest"
+    },
+    "properties": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PropertyBlock"
+      },
+      "title": "Properties",
+      "type": "object"
+    },
+    "resolutions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ResolutionMechanicBlock"
+      },
+      "title": "Resolutions",
+      "type": "object"
+    },
+    "resource_pools": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ResourcePoolBlock"
+      },
+      "title": "Resource Pools",
+      "type": "object"
+    }
+  },
+  "required": [
+    "manifest"
+  ],
+  "title": "RulesetSchema",
+  "type": "object"
+}

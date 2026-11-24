@@ -1,0 +1,354 @@
+"""Universal agnostic Ruleset Building Block schemas (Golden Rule #1)."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.ruleset_vm.ast_evaluator import (
+    FormulaError,
+    ScalarValue,
+    extract_references,
+    parse_formula,
+)
+from app.ruleset_vm.manifest import PackageManifest
+
+RandomizerKind = Literal[
+    "dice_formula",
+    "dice_pool",
+    "step_dice",
+    "card_deck",
+    "resource_wager",
+    "none",
+]
+
+
+class PropertyBlock(BaseModel):
+    """Named attribute, derived statistic, or descriptive trait on an entity."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    prop_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    value_kind: Literal["int", "float", "bool", "str", "step_die"] = "int"
+    default_value: ScalarValue = 0
+    min_value: int | float | None = None
+    max_value: int | float | None = None
+    formula: str | None = Field(
+        default=None,
+        description="Optional AST formula deriving this property from other entity properties.",
+    )
+    category: str = "core"
+    tags: tuple[str, ...] = ()
+
+
+class ResourcePoolBlock(BaseModel):
+    """Depletable/recoverable track or pool (vitality, stamina, stress, doom clock, etc.)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    pool_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    default_current: str | int = 0
+    max_formula: str | None = None
+    min_value: int = 0
+    reset_on: str = "manual"
+    track_segments: int | None = Field(default=None, ge=1)
+
+
+class EffectSpec(BaseModel):
+    """Deterministic state mutation emitted by actions, tiers, or ECA event hooks."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal[
+        "modify_pool",
+        "set_property",
+        "add_condition",
+        "remove_condition",
+        "advance_clock",
+        "emit_message",
+    ]
+    target_scope: Literal["self", "target", "scene"] = "target"
+    target_key: str = ""
+    formula: str = "0"
+    duration_turns: int | None = Field(default=None, ge=1)
+
+
+class OutcomeTier(BaseModel):
+    """Ordered outcome predicate and resulting effects for a resolution mechanic."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    tier_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    condition: str = Field(min_length=1)
+    effects: tuple[EffectSpec, ...] = ()
+
+
+def _empty_face_symbols() -> dict[int, tuple[str, ...]]:
+    return {}
+
+
+class RandomizerSpec(BaseModel):
+    """Declarative specification of dice, pool, step-die, deck, wager, or diceless rolls."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: RandomizerKind = "dice_formula"
+    formula: str = ""
+    pool_size_formula: str = "1"
+    die_sides: int = Field(default=6, ge=2, le=1000)
+    success_threshold: int = 5
+    glitch_face: int = 1
+    glitch_ratio: float = Field(default=0.5, ge=0.0, le=1.0)
+    step_die_formula: str = ""
+    wild_die_sides: int | None = Field(default=None, ge=2, le=100)
+    explode: bool = False
+    face_symbols: dict[int, tuple[str, ...]] = Field(default_factory=_empty_face_symbols)
+    deck_id: str | None = None
+    draw_count: int = Field(default=1, ge=1, le=52)
+    reshuffle_on_empty: bool = True
+    base_value: int | float = 0
+
+
+class ResolutionMechanicBlock(BaseModel):
+    """Combines a randomizer, modifiers, target difficulty, and outcome tiers."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mech_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    randomizer: RandomizerSpec
+    modifier_formula: str = "0"
+    target_formula: str | None = None
+    resolution_mode: Literal["standard", "contested"] = "standard"
+    opposed_mech_id: str | None = None
+    tiers: tuple[OutcomeTier, ...] = ()
+
+
+class ConditionBlock(BaseModel):
+    """Status condition with declarative property deltas and capability gating tags."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    condition_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    description: str = ""
+    property_modifiers: dict[str, str] = Field(default_factory=dict)
+    blocks_tags: tuple[str, ...] = ()
+    persistent_flag: bool = False
+    default_duration_turns: int | None = Field(default=None, ge=1)
+    visual_priority: int = 0
+
+
+class ActionBlock(BaseModel):
+    """Player or NPC capability/action/stance/reaction executed through the VM."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    action_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    category: Literal["action", "power", "reaction", "stance"] = "action"
+    resolution_id: str | None = None
+    requires: str = "true"
+    pool_costs: dict[str, str] = Field(default_factory=dict)
+    allow_reactions: bool = False
+    trigger: str | None = None
+    requires_target: bool = False
+    target_override_formula: str | None = None
+    modifier_override_formula: str | None = None
+    default_effects: tuple[EffectSpec, ...] = ()
+    tags: tuple[str, ...] = ()
+
+
+class EventHookBlock(BaseModel):
+    """Declarative Event-Condition-Action (ECA) hook bound to VM lifecycle events."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    hook_id: str = Field(min_length=1)
+    event_name: str = Field(min_length=1)
+    condition: str = "true"
+    effects: tuple[EffectSpec, ...] = ()
+
+
+class DeckSpec(BaseModel):
+    """Named card deck specification supporting multiple gameplay scopes."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    deck_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    scope: Literal["table_shared", "per_entity", "encounter_local"] = "table_shared"
+    cards: tuple[str, ...] = Field(min_length=1)
+    card_values: dict[str, int] = Field(default_factory=dict)
+
+
+class FlowConfig(BaseModel):
+    """Pluggable turn/time flow configuration for a ruleset."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    default_mode: Literal["freeform", "round_initiative", "popcorn_spotlight"] = "freeform"
+    initiative_formula: str = "0"
+    turn_pool_resets: tuple[str, ...] = ()
+
+
+class RulesetSchema(BaseModel):
+    """Top-level declarative schema compiled from .rpgrules or authoring studios."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    manifest: PackageManifest
+    declared_primitives: tuple[str, ...] = ()
+    properties: dict[str, PropertyBlock] = Field(default_factory=dict)
+    resource_pools: dict[str, ResourcePoolBlock] = Field(default_factory=dict)
+    resolutions: dict[str, ResolutionMechanicBlock] = Field(default_factory=dict)
+    conditions: dict[str, ConditionBlock] = Field(default_factory=dict)
+    actions: dict[str, ActionBlock] = Field(default_factory=dict)
+    event_hooks: dict[str, EventHookBlock] = Field(default_factory=dict)
+    decks: dict[str, DeckSpec] = Field(default_factory=dict)
+    flow_config: FlowConfig = Field(default_factory=FlowConfig)
+
+    def content_hash(self) -> str:
+        """Compute canonical SHA-256 digest of this ruleset schema."""
+        serialized = json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    def topological_property_order(self) -> tuple[str, ...]:
+        """Return derived property IDs sorted with dependencies before dependents."""
+        derived = {pid: prop for pid, prop in self.properties.items() if prop.formula is not None}
+        deps: dict[str, set[str]] = {}
+        for pid, prop in derived.items():
+            assert prop.formula is not None
+            refs = extract_references(prop.formula)
+            prop_deps: set[str] = set()
+            for ref in refs:
+                if ref.startswith("@self."):
+                    dep_name = ref.removeprefix("@self.").split(".")[0]
+                    if dep_name in derived:
+                        prop_deps.add(dep_name)
+            deps[pid] = prop_deps
+
+        order: list[str] = []
+        state: dict[str, int] = {}
+
+        def _visit(pid: str) -> None:
+            mark = state.get(pid, 0)
+            if mark == 1:
+                raise FormulaError(
+                    "RPG-E2001", f"Circular derived-property dependency involving '{pid}'"
+                )
+            if mark == 2:
+                return
+            state[pid] = 1
+            for dep in sorted(deps.get(pid, ())):
+                _visit(dep)
+            state[pid] = 2
+            order.append(pid)
+
+        for pid in sorted(derived):
+            _visit(pid)
+        return tuple(order)
+
+    def validate_graph(self) -> list[str]:
+        """Validate internal formulas, circular dependencies, and cross-block references."""
+        errors: list[str] = []
+
+        for pid, prop in sorted(self.properties.items()):
+            if prop.formula is not None:
+                try:
+                    parse_formula(prop.formula)
+                except FormulaError as exc:
+                    errors.append(f"Property '{pid}' invalid formula: {exc.message}")
+
+        try:
+            self.topological_property_order()
+        except FormulaError as exc:
+            errors.append(exc.message)
+
+        for pool_id, pool in sorted(self.resource_pools.items()):
+            if isinstance(pool.default_current, str):
+                try:
+                    parse_formula(pool.default_current)
+                except FormulaError as exc:
+                    errors.append(f"ResourcePool '{pool_id}' default_current: {exc.message}")
+            if pool.max_formula is not None:
+                try:
+                    parse_formula(pool.max_formula)
+                except FormulaError as exc:
+                    errors.append(f"ResourcePool '{pool_id}' max_formula: {exc.message}")
+
+        for mech_id, mech in sorted(self.resolutions.items()):
+            for field_label, expr in (
+                ("modifier_formula", mech.modifier_formula),
+                ("target_formula", mech.target_formula),
+            ):
+                if expr is not None:
+                    try:
+                        parse_formula(expr)
+                    except FormulaError as exc:
+                        errors.append(f"Resolution '{mech_id}' {field_label}: {exc.message}")
+            if mech.randomizer.kind == "card_deck" and (
+                mech.randomizer.deck_id is None or mech.randomizer.deck_id not in self.decks
+            ):
+                errors.append(
+                    f"Resolution '{mech_id}' references unknown deck '{mech.randomizer.deck_id}'"
+                )
+            for tier in mech.tiers:
+                try:
+                    parse_formula(tier.condition)
+                except FormulaError as exc:
+                    errors.append(f"Resolution '{mech_id}' tier '{tier.tier_id}': {exc.message}")
+                for eff in tier.effects:
+                    self._validate_effect(
+                        eff, f"Resolution '{mech_id}' tier '{tier.tier_id}'", errors
+                    )
+
+        for action_id, action in sorted(self.actions.items()):
+            if action.resolution_id is not None and action.resolution_id not in self.resolutions:
+                errors.append(
+                    f"Action '{action_id}' references unknown resolution '{action.resolution_id}'"
+                )
+            for pool_key, cost_expr in sorted(action.pool_costs.items()):
+                if pool_key not in self.resource_pools:
+                    errors.append(
+                        f"Action '{action_id}' pool cost references unknown pool '{pool_key}'"
+                    )
+                try:
+                    parse_formula(cost_expr)
+                except FormulaError as exc:
+                    errors.append(f"Action '{action_id}' cost '{pool_key}': {exc.message}")
+            for field_label, expr in (
+                ("requires", action.requires),
+                ("target_override_formula", action.target_override_formula),
+                ("modifier_override_formula", action.modifier_override_formula),
+            ):
+                if expr is not None:
+                    try:
+                        parse_formula(expr)
+                    except FormulaError as exc:
+                        errors.append(f"Action '{action_id}' {field_label}: {exc.message}")
+            for eff in action.default_effects:
+                self._validate_effect(eff, f"Action '{action_id}'", errors)
+
+        for hook_id, hook in sorted(self.event_hooks.items()):
+            try:
+                parse_formula(hook.condition)
+            except FormulaError as exc:
+                errors.append(f"EventHook '{hook_id}' condition: {exc.message}")
+            for eff in hook.effects:
+                self._validate_effect(eff, f"EventHook '{hook_id}'", errors)
+
+        return errors
+
+    def _validate_effect(self, effect: EffectSpec, owner: str, errors: list[str]) -> None:
+        if effect.kind != "emit_message":
+            try:
+                parse_formula(effect.formula)
+            except FormulaError as exc:
+                errors.append(f"{owner} effect formula '{effect.target_key}': {exc.message}")
