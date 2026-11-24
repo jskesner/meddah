@@ -1,0 +1,493 @@
+{
+  "manifest": {
+    "schema_version": "0.1.0",
+    "package_type": "ruleset",
+    "package_id": "classic_d20_fantasy",
+    "name": "Classic d20 Fantasy",
+    "version": "0.1.0",
+    "description": "Heroic tactical d20 roll-over fantasy ruleset adapted from SRD 5.1 (CC-BY 4.0).",
+    "authors": [
+      "Meddah Contributors (Adapted from SRD 5.1)"
+    ],
+    "license": "CC-BY-4.0"
+  },
+  "declared_primitives": [
+    "d20_roll_over",
+    "round_initiative",
+    "grid_2d_tactical",
+    "vancian_slots",
+    "vitality_death_save",
+    "stabilize",
+    "resurrection",
+    "point_buy",
+    "level_up_graph"
+  ],
+  "properties": {
+    "str_score": {
+      "prop_id": "str_score",
+      "label": "Might",
+      "value_kind": "int",
+      "default_value": 10,
+      "min_value": 1,
+      "max_value": 30,
+      "category": "attribute"
+    },
+    "dex_score": {
+      "prop_id": "dex_score",
+      "label": "Agility",
+      "value_kind": "int",
+      "default_value": 10,
+      "min_value": 1,
+      "max_value": 30,
+      "category": "attribute"
+    },
+    "con_score": {
+      "prop_id": "con_score",
+      "label": "Fortitude",
+      "value_kind": "int",
+      "default_value": 10,
+      "min_value": 1,
+      "max_value": 30,
+      "category": "attribute"
+    },
+    "int_score": {
+      "prop_id": "int_score",
+      "label": "Arcana",
+      "value_kind": "int",
+      "default_value": 10,
+      "min_value": 1,
+      "max_value": 30,
+      "category": "attribute"
+    },
+    "wis_score": {
+      "prop_id": "wis_score",
+      "label": "Insight",
+      "value_kind": "int",
+      "default_value": 10,
+      "min_value": 1,
+      "max_value": 30,
+      "category": "attribute"
+    },
+    "cha_score": {
+      "prop_id": "cha_score",
+      "label": "Presence",
+      "value_kind": "int",
+      "default_value": 10,
+      "min_value": 1,
+      "max_value": 30,
+      "category": "attribute"
+    },
+    "str_mod": {
+      "prop_id": "str_mod",
+      "label": "Might Modifier",
+      "value_kind": "int",
+      "default_value": 0,
+      "formula": "floor((@self.str_score - 10) / 2)",
+      "category": "derived"
+    },
+    "dex_mod": {
+      "prop_id": "dex_mod",
+      "label": "Agility Modifier",
+      "value_kind": "int",
+      "default_value": 0,
+      "formula": "floor((@self.dex_score - 10) / 2)",
+      "category": "derived"
+    },
+    "con_mod": {
+      "prop_id": "con_mod",
+      "label": "Fortitude Modifier",
+      "value_kind": "int",
+      "default_value": 0,
+      "formula": "floor((@self.con_score - 10) / 2)",
+      "category": "derived"
+    },
+    "int_mod": {
+      "prop_id": "int_mod",
+      "label": "Arcana Modifier",
+      "value_kind": "int",
+      "default_value": 0,
+      "formula": "floor((@self.int_score - 10) / 2)",
+      "category": "derived"
+    },
+    "wis_mod": {
+      "prop_id": "wis_mod",
+      "label": "Insight Modifier",
+      "value_kind": "int",
+      "default_value": 0,
+      "formula": "floor((@self.wis_score - 10) / 2)",
+      "category": "derived"
+    },
+    "cha_mod": {
+      "prop_id": "cha_mod",
+      "label": "Presence Modifier",
+      "value_kind": "int",
+      "default_value": 0,
+      "formula": "floor((@self.cha_score - 10) / 2)",
+      "category": "derived"
+    },
+    "proficiency": {
+      "prop_id": "proficiency",
+      "label": "Proficiency Bonus",
+      "value_kind": "int",
+      "default_value": 2,
+      "min_value": 2,
+      "max_value": 6,
+      "category": "progression"
+    },
+    "armor_rating": {
+      "prop_id": "armor_rating",
+      "label": "Defense Class",
+      "value_kind": "int",
+      "default_value": 10,
+      "formula": "10 + @self.dex_mod",
+      "min_value": 1,
+      "max_value": 40,
+      "category": "derived"
+    },
+    "carry_capacity": {
+      "prop_id": "carry_capacity",
+      "label": "Carry Capacity",
+      "value_kind": "int",
+      "default_value": 150,
+      "formula": "@self.str_score * 15",
+      "category": "derived"
+    },
+    "tier": {
+      "prop_id": "tier",
+      "label": "Heroic Level",
+      "value_kind": "int",
+      "default_value": 1,
+      "min_value": 1,
+      "max_value": 20,
+      "category": "progression"
+    }
+  },
+  "resource_pools": {
+    "vitality": {
+      "pool_id": "vitality",
+      "label": "Vitality",
+      "default_current": "10 + @self.con_mod",
+      "max_formula": "10 + @self.con_mod",
+      "min_value": 0,
+      "reset_on": "long_rest"
+    },
+    "hit_dice": {
+      "pool_id": "hit_dice",
+      "label": "Recovery Dice",
+      "default_current": 1,
+      "max_formula": "@self.tier",
+      "min_value": 0,
+      "reset_on": "long_rest"
+    },
+    "spell_slots_1": {
+      "pool_id": "spell_slots_1",
+      "label": "Tier-1 Arcana Slots",
+      "default_current": 2,
+      "max_formula": "4",
+      "min_value": 0,
+      "reset_on": "long_rest"
+    },
+    "reaction_token": {
+      "pool_id": "reaction_token",
+      "label": "Reaction",
+      "default_current": 1,
+      "max_formula": "1",
+      "min_value": 0,
+      "reset_on": "turn"
+    },
+    "xp": {
+      "pool_id": "xp",
+      "label": "Experience",
+      "default_current": 0,
+      "min_value": 0,
+      "reset_on": "manual"
+    }
+  },
+  "resolutions": {
+    "d20_melee_attack": {
+      "mech_id": "d20_melee_attack",
+      "label": "Melee Attack Roll",
+      "randomizer": {
+        "kind": "dice_formula",
+        "formula": "1d20"
+      },
+      "modifier_formula": "@self.str_mod + @self.proficiency",
+      "target_formula": "@target.armor_rating",
+      "tiers": [
+        {
+          "tier_id": "crit",
+          "label": "Critical Hit",
+          "condition": "@roll.raw_max == 20",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "target",
+              "target_key": "vitality",
+              "formula": "-10"
+            }
+          ]
+        },
+        {
+          "tier_id": "fumble",
+          "label": "Critical Miss",
+          "condition": "@roll.raw_max == 1",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Attack swings wildly off balance!"
+            }
+          ]
+        },
+        {
+          "tier_id": "hit",
+          "label": "Solid Hit",
+          "condition": "@roll.total >= @roll.target",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "target",
+              "target_key": "vitality",
+              "formula": "-6"
+            }
+          ]
+        },
+        {
+          "tier_id": "miss",
+          "label": "Deflected",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Blow glances harmlessly off defenses."
+            }
+          ]
+        }
+      ]
+    },
+    "d20_spell_save": {
+      "mech_id": "d20_spell_save",
+      "label": "Insight Resistance Check",
+      "randomizer": {
+        "kind": "dice_formula",
+        "formula": "1d20"
+      },
+      "modifier_formula": "@self.wis_mod + @self.proficiency",
+      "target_formula": "13",
+      "tiers": [
+        {
+          "tier_id": "resisted",
+          "label": "Resisted",
+          "condition": "@roll.total >= @roll.target",
+          "effects": []
+        },
+        {
+          "tier_id": "affected",
+          "label": "Affected",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "vitality",
+              "formula": "-4"
+            }
+          ]
+        }
+      ]
+    },
+    "d20_death_save": {
+      "mech_id": "d20_death_save",
+      "label": "Death Save",
+      "randomizer": {
+        "kind": "dice_formula",
+        "formula": "1d20"
+      },
+      "target_formula": "10",
+      "tiers": [
+        {
+          "tier_id": "natural_20",
+          "label": "Miraculous Surge",
+          "condition": "@roll.raw_max == 20",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "vitality",
+              "formula": "1"
+            },
+            {
+              "kind": "remove_condition",
+              "target_scope": "self",
+              "target_key": "dying",
+              "formula": "0"
+            }
+          ]
+        },
+        {
+          "tier_id": "success",
+          "label": "Hold On",
+          "condition": "@roll.total >= 10",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "death_successes",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "natural_1",
+          "label": "Severe Setback",
+          "condition": "@roll.raw_max == 1",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "death_failures",
+              "formula": "2"
+            }
+          ]
+        },
+        {
+          "tier_id": "fail",
+          "label": "Slipping Away",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "death_failures",
+              "formula": "1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "conditions": {
+    "warded_shield": {
+      "condition_id": "warded_shield",
+      "label": "Arcane Barrier",
+      "description": "Raises Defense Class by +4 until the start of the next turn.",
+      "property_modifiers": {
+        "armor_rating": "4"
+      },
+      "default_duration_turns": 1
+    },
+    "dying": {
+      "condition_id": "dying",
+      "label": "Dying",
+      "description": "Incapacitated at zero Vitality and must roll death saves.",
+      "blocks_tags": [
+        "combat_action"
+      ],
+      "persistent_flag": true,
+      "visual_priority": 10
+    },
+    "stabilized": {
+      "condition_id": "stabilized",
+      "label": "Stabilized",
+      "description": "Out of immediate peril at zero Vitality.",
+      "default_duration_turns": 3
+    }
+  },
+  "actions": {
+    "melee_strike": {
+      "action_id": "melee_strike",
+      "label": "Weapon Strike",
+      "category": "action",
+      "resolution_id": "d20_melee_attack",
+      "requires": "!has_condition(@self, 'dying')",
+      "allow_reactions": true,
+      "requires_target": true,
+      "tags": [
+        "combat_action",
+        "melee"
+      ]
+    },
+    "ward_shield": {
+      "action_id": "ward_shield",
+      "label": "Arcane Ward",
+      "category": "reaction",
+      "requires": "!has_condition(@self, 'dying')",
+      "pool_costs": {
+        "reaction_token": "1",
+        "spell_slots_1": "1"
+      },
+      "trigger": "on_targeted",
+      "default_effects": [
+        {
+          "kind": "add_condition",
+          "target_scope": "self",
+          "target_key": "warded_shield",
+          "formula": "1",
+          "duration_turns": 1
+        }
+      ],
+      "tags": [
+        "reaction",
+        "arcane"
+      ]
+    },
+    "stabilize": {
+      "action_id": "stabilize",
+      "label": "Field Stabilize",
+      "category": "action",
+      "requires": "!has_condition(@self, 'dying') && has_condition(@target, 'dying')",
+      "requires_target": true,
+      "default_effects": [
+        {
+          "kind": "remove_condition",
+          "target_scope": "target",
+          "target_key": "dying",
+          "formula": "0"
+        },
+        {
+          "kind": "add_condition",
+          "target_scope": "target",
+          "target_key": "stabilized",
+          "formula": "1"
+        }
+      ],
+      "tags": [
+        "combat_action",
+        "aid"
+      ]
+    },
+    "death_save": {
+      "action_id": "death_save",
+      "label": "Roll Death Save",
+      "category": "action",
+      "resolution_id": "d20_death_save",
+      "requires": "has_condition(@self, 'dying')",
+      "tags": [
+        "survival"
+      ]
+    }
+  },
+  "event_hooks": {
+    "on_zero_vitality": {
+      "hook_id": "on_zero_vitality",
+      "event_name": "on_action_resolved",
+      "condition": "@target != null && @target.pools.vitality <= 0 && !has_condition(@target, 'dying') && !has_condition(@target, 'stabilized')",
+      "effects": [
+        {
+          "kind": "add_condition",
+          "target_scope": "target",
+          "target_key": "dying",
+          "formula": "1"
+        }
+      ]
+    }
+  },
+  "flow_config": {
+    "default_mode": "round_initiative",
+    "initiative_formula": "@self.dex_mod",
+    "turn_pool_resets": [
+      "reaction_token"
+    ]
+  }
+}

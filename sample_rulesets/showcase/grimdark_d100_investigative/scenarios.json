@@ -1,0 +1,82 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_clue_investigation_tiers",
+      "description": "Freeform investigation roll-under uncovers clues cleanly at Devil's Reef.",
+      "scene_id": "devils_reef_study",
+      "scene_seed": "d100-clue-seed-2",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_blackwood",
+          "name": "Dr. Blackwood",
+          "base_properties": {
+            "spot_hidden": 75
+          },
+          "pools": {
+            "vitality": 12,
+            "sanity": 60,
+            "luck": 50
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_blackwood",
+          "action_id": "investigate_clue",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "clocks_min": {
+          "clues_uncovered": 1
+        }
+      }
+    },
+    {
+      "scenario_id": "scenario_sanity_shock_and_push_roll",
+      "description": "Sanity check and pushed investigation deduct luck pool cleanly.",
+      "scene_id": "lighthouse_lantern",
+      "scene_seed": "d100-horror-seed-7",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_marlowe",
+          "name": "Marlowe",
+          "base_properties": {
+            "spot_hidden": 65
+          },
+          "pools": {
+            "vitality": 12,
+            "sanity": 40,
+            "luck": 30
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_marlowe",
+          "action_id": "witness_horror",
+          "expect_status": "executed"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_marlowe",
+          "action_id": "push_investigation",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_marlowe": {
+            "pools": {
+              "luck": 25
+            }
+          }
+        }
+      }
+    }
+  ]
+}

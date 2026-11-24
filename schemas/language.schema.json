@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "description": "Declarative diegetic language, dialect family, script, or secret cant.",
+  "properties": {
+    "family_group": {
+      "default": "",
+      "title": "Family Group",
+      "type": "string"
+    },
+    "flavor_adjective": {
+      "default": "unfamiliar",
+      "title": "Flavor Adjective",
+      "type": "string"
+    },
+    "is_secret_cant": {
+      "default": false,
+      "title": "Is Secret Cant",
+      "type": "boolean"
+    },
+    "label": {
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "language_id": {
+      "minLength": 1,
+      "title": "Language Id",
+      "type": "string"
+    },
+    "phonetic_syllables": {
+      "default": [
+        "kal",
+        "eth",
+        "vor",
+        "sin",
+        "dar",
+        "tel",
+        "mal",
+        "ren"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "title": "Phonetic Syllables",
+      "type": "array"
+    },
+    "script_alphabet": {
+      "default": "",
+      "title": "Script Alphabet",
+      "type": "string"
+    }
+  },
+  "required": [
+    "language_id",
+    "label"
+  ],
+  "title": "LanguageBlock",
+  "type": "object"
+}

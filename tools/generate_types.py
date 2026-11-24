@@ -14,6 +14,12 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.mud_parser import (  # noqa: E402
+    CommunicationMediumBlock,
+    CustomEmoteBlock,
+    CustomMudCommandBlock,
+    LanguageBlock,
+)
 from app.ruleset_vm import (  # noqa: E402
     AdvancementGraphSpec,
     InventoryGraphState,
@@ -24,8 +30,12 @@ from app.ruleset_vm import (  # noqa: E402
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "advancement": AdvancementGraphSpec,
+    "comms_medium": CommunicationMediumBlock,
+    "custom_command": CustomMudCommandBlock,
+    "custom_emote": CustomEmoteBlock,
     "event": VmEvent,
     "inventory": InventoryGraphState,
+    "language": LanguageBlock,
     "manifest": PackageManifest,
     "ruleset": RulesetSchema,
 }

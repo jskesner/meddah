@@ -1,0 +1,148 @@
+{
+  "additionalProperties": false,
+  "description": "Ruleset/world-defined communication medium across 6 universal topologies.",
+  "properties": {
+    "audibility_mode": {
+      "default": "audible_speech",
+      "enum": [
+        "audible_speech",
+        "subvocal_whisper",
+        "silent_mental_or_text"
+      ],
+      "title": "Audibility Mode",
+      "type": "string"
+    },
+    "cross_plane_failure_pct": {
+      "default": 0,
+      "maximum": 100,
+      "minimum": 0,
+      "title": "Cross Plane Failure Pct",
+      "type": "integer"
+    },
+    "default_signal_quality": {
+      "default": 1.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Default Signal Quality",
+      "type": "number"
+    },
+    "label": {
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "max_words": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Words"
+    },
+    "medium_id": {
+      "minLength": 1,
+      "title": "Medium Id",
+      "type": "string"
+    },
+    "mud_verbs": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Mud Verbs",
+      "type": "array"
+    },
+    "required_capability_tag": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Required Capability Tag"
+    },
+    "requires_mental_action": {
+      "default": false,
+      "title": "Requires Mental Action",
+      "type": "boolean"
+    },
+    "requires_somatic_input": {
+      "default": false,
+      "title": "Requires Somatic Input",
+      "type": "boolean"
+    },
+    "requires_vocal_speech": {
+      "default": true,
+      "title": "Requires Vocal Speech",
+      "type": "boolean"
+    },
+    "resource_cost_amount": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Resource Cost Amount",
+      "type": "integer"
+    },
+    "resource_cost_pool": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resource Cost Pool"
+    },
+    "suppress_tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Suppress Tags",
+      "type": "array"
+    },
+    "telepathic_comprehension_mode": {
+      "default": "language_dependent",
+      "enum": [
+        "language_dependent",
+        "universal_conceptual"
+      ],
+      "title": "Telepathic Comprehension Mode",
+      "type": "string"
+    },
+    "topology": {
+      "enum": [
+        "tuned_frequency",
+        "mental_link",
+        "resource_gated_artifact",
+        "persistent_network",
+        "public_broadcast",
+        "async_courier"
+      ],
+      "title": "Topology",
+      "type": "string"
+    },
+    "travel_turns_per_hop": {
+      "default": 1,
+      "minimum": 0,
+      "title": "Travel Turns Per Hop",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "medium_id",
+    "label",
+    "topology"
+  ],
+  "title": "CommunicationMediumBlock",
+  "type": "object"
+}

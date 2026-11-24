@@ -1,0 +1,15 @@
+{
+  "skill_ticks": {
+    "paradigm": "skill_usage_ticks",
+    "tick_tag_prefix": "skill_tick:",
+    "check_roll": {
+      "kind": "dice_formula",
+      "formula": "1d100"
+    },
+    "gain_roll": {
+      "kind": "dice_formula",
+      "formula": "1d10"
+    },
+    "max_skill_value": 99
+  }
+}

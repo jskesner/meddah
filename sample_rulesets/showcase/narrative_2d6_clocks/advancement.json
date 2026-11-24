@@ -1,0 +1,12 @@
+{
+  "playbook_triggers": {
+    "paradigm": "playbook_triggers",
+    "triggers": [
+      "addressed_tough_obstacle_with_stealth_or_deception",
+      "expressed_crew_beliefs_drives_or_heritage",
+      "struggled_with_vice_or_trauma"
+    ],
+    "xp_clock_pool_id": "playbook_xp",
+    "advancement_threshold": 8
+  }
+}

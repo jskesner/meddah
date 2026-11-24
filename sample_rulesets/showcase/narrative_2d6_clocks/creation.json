@@ -1,0 +1,81 @@
+{
+  "starting_pools": {
+    "stress": 0,
+    "armor_uses": 1,
+    "playbook_xp": 0
+  },
+  "steps": [
+    {
+      "kind": "package_pick",
+      "step_id": "choose_playbook",
+      "label": "Choose Scoundrel Playbook",
+      "options": [
+        {
+          "option_id": "cutter",
+          "label": "Cutter Enforcer",
+          "property_bonuses": {
+            "prowl": 1
+          },
+          "granted_tags": [
+            "playbook_cutter"
+          ],
+          "granted_actions": [
+            "infiltrate_action",
+            "resist_consequence"
+          ]
+        },
+        {
+          "option_id": "lurk",
+          "label": "Lurk Infiltrator",
+          "property_bonuses": {
+            "prowl": 1,
+            "finesse": 1
+          },
+          "granted_tags": [
+            "playbook_lurk"
+          ],
+          "granted_actions": [
+            "infiltrate_action"
+          ]
+        },
+        {
+          "option_id": "whisper",
+          "label": "Whisper Arcanist",
+          "property_bonuses": {
+            "attune": 2
+          },
+          "granted_tags": [
+            "playbook_whisper"
+          ]
+        },
+        {
+          "option_id": "slide",
+          "label": "Slide Manipulator",
+          "property_bonuses": {
+            "sway": 2
+          },
+          "granted_tags": [
+            "playbook_slide"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "array_assign",
+      "step_id": "assign_action_ratings",
+      "label": "Assign Scoundrel Ratings",
+      "target_properties": [
+        "prowl",
+        "finesse",
+        "sway",
+        "attune"
+      ],
+      "array_values": [
+        2,
+        1,
+        1,
+        0
+      ]
+    }
+  ]
+}

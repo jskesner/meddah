@@ -1,0 +1,105 @@
+{
+  "starting_pools": {
+    "vitality": 12,
+    "hit_dice": 1,
+    "spell_slots_1": 2,
+    "reaction_token": 1,
+    "xp": 0
+  },
+  "steps": [
+    {
+      "kind": "point_buy_pool",
+      "step_id": "point_buy_attributes",
+      "label": "Allocate Attribute Points",
+      "target_properties": [
+        "str_score",
+        "dex_score",
+        "con_score",
+        "int_score",
+        "wis_score",
+        "cha_score"
+      ],
+      "budget_points": 27,
+      "base_value": 8,
+      "min_score": 8,
+      "max_score": 15,
+      "cost_table": {
+        "8": 0,
+        "9": 1,
+        "10": 2,
+        "11": 3,
+        "12": 4,
+        "13": 5,
+        "14": 7,
+        "15": 9
+      }
+    },
+    {
+      "kind": "package_pick",
+      "step_id": "choose_archetype",
+      "label": "Choose Heroic Archetype",
+      "options": [
+        {
+          "option_id": "fighter",
+          "label": "Vanguard Fighter",
+          "property_bonuses": {
+            "str_score": 2,
+            "con_score": 1
+          },
+          "granted_tags": [
+            "martial_training",
+            "heavy_armor"
+          ],
+          "granted_actions": [
+            "melee_strike"
+          ]
+        },
+        {
+          "option_id": "rogue",
+          "label": "Shadowblade Rogue",
+          "property_bonuses": {
+            "dex_score": 2,
+            "cha_score": 1
+          },
+          "granted_tags": [
+            "cunning_step",
+            "light_armor"
+          ],
+          "granted_actions": [
+            "melee_strike"
+          ]
+        },
+        {
+          "option_id": "wizard",
+          "label": "Scholar Wizard",
+          "property_bonuses": {
+            "int_score": 2,
+            "wis_score": 1
+          },
+          "granted_tags": [
+            "arcane_focus",
+            "ritual_caster"
+          ],
+          "granted_actions": [
+            "ward_shield"
+          ]
+        },
+        {
+          "option_id": "cleric",
+          "label": "Sunhearth Cleric",
+          "property_bonuses": {
+            "wis_score": 2,
+            "con_score": 1
+          },
+          "granted_tags": [
+            "divine_channel",
+            "med_armor"
+          ],
+          "granted_actions": [
+            "stabilize"
+          ]
+        }
+      ]
+    }
+  ]
+}

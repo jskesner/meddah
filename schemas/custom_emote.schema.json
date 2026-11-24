@@ -1,0 +1,154 @@
+{
+  "additionalProperties": false,
+  "description": "Host/GM-authored custom 3-perspective parameterized social emote.",
+  "properties": {
+    "aliases": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Aliases",
+      "type": "array"
+    },
+    "audio_clip_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Audio Clip Ref"
+    },
+    "eligibility": {
+      "default": "all_players",
+      "enum": [
+        "all_players",
+        "requires_tag_or_faction",
+        "gm_only",
+        "host_admin_only"
+      ],
+      "title": "Eligibility",
+      "type": "string"
+    },
+    "emote_id": {
+      "minLength": 1,
+      "title": "Emote Id",
+      "type": "string"
+    },
+    "no_target_actor": {
+      "minLength": 1,
+      "title": "No Target Actor",
+      "type": "string"
+    },
+    "no_target_room": {
+      "minLength": 1,
+      "title": "No Target Room",
+      "type": "string"
+    },
+    "required_tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Tags",
+      "type": "array"
+    },
+    "requires": {
+      "default": "true",
+      "title": "Requires",
+      "type": "string"
+    },
+    "scope": {
+      "default": "campaign_overlay",
+      "enum": [
+        "room_or_poi_only",
+        "region_or_hub_only",
+        "campaign_overlay",
+        "guild_server_global",
+        "package_bundled"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "scope_target_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scope Target Id"
+    },
+    "targeted_actor": {
+      "minLength": 1,
+      "title": "Targeted Actor",
+      "type": "string"
+    },
+    "targeted_room": {
+      "minLength": 1,
+      "title": "Targeted Room",
+      "type": "string"
+    },
+    "targeted_target": {
+      "minLength": 1,
+      "title": "Targeted Target",
+      "type": "string"
+    },
+    "valence": {
+      "default": "neutral",
+      "enum": [
+        "neutral",
+        "respectful_greeting",
+        "warm_friendly",
+        "affectionate_comfort",
+        "cheerful_celebration",
+        "hostile_intimidation",
+        "sarcastic_taunt",
+        "dismissive_scorn",
+        "submissive_plea",
+        "fearful_retreat",
+        "curious_investigative",
+        "weary_exasperated",
+        "solemn_reverent",
+        "deceptive_bluff",
+        "tactical_signal"
+      ],
+      "title": "Valence",
+      "type": "string"
+    },
+    "verb": {
+      "minLength": 1,
+      "title": "Verb",
+      "type": "string"
+    },
+    "vfx_cue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vfx Cue"
+    }
+  },
+  "required": [
+    "emote_id",
+    "verb",
+    "no_target_actor",
+    "no_target_room",
+    "targeted_actor",
+    "targeted_target",
+    "targeted_room"
+  ],
+  "title": "CustomEmoteBlock",
+  "type": "object"
+}
