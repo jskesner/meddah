@@ -106,7 +106,7 @@ phases:
 ### [P1] Phase 1: Core Agnostic Ruleset VM, Module Registry, Layered Inventory, Creation/Advancement & MUD Parser
 - **Status**: `In Progress` | **MVP**: `Yes` | **Target Tag**: `v0.1.0`
 - [ ] `backend/app/ruleset_vm/`: Safe AST evaluator (`0` eval/exec), named seeded RNG streams, flow controller (`freeform` / `round_initiative` / `popcorn_spotlight`), reaction & contested windows, universal `inventory_graph.py` (`abstract_slots` & `anatomical_layered`), `advancement.py` (5 creation + 5 progression paradigms).
-- [ ] `backend/app/ruleset_vm/module_registry.py` & `tools/lint_modularity.py` + `tools/lint_agnosticism.py`.
+- [x] `backend/app/ruleset_vm/module_registry.py` & `tools/lint_modularity.py` + `tools/lint_agnosticism.py`.
 - [ ] `backend/app/mud_parser/`: `<5ms` deterministic lexer, `social_dsl.py`, 60+ 3-perspective social emotes, `custom_commands.py` (host custom commands/emotes & 4-step declarative `ECA` pipelines), `diegetic_comms.py`.
 - [ ] 7 Conformance Ruleset fixtures (`3 Showcase + 4 Conformance`) & `pytest -m zero_ai` suite passing.
 
