@@ -1,0 +1,171 @@
+{
+  "manifest": {
+    "schema_version": "0.1.0",
+    "package_type": "ruleset",
+    "package_id": "step_symbol_dice",
+    "name": "Step-Dice & Symbol Faces",
+    "version": "0.1.0",
+    "description": "Original pulp step-dice (d4->d12 + exploding wild d6) conformance ruleset with custom symbol face tags.",
+    "authors": [
+      "Meddah Contributors"
+    ],
+    "license": "CC0-1.0"
+  },
+  "declared_primitives": [
+    "step_dice_exploding",
+    "wild_die",
+    "face_symbols"
+  ],
+  "properties": {
+    "fighting_die": {
+      "prop_id": "fighting_die",
+      "label": "Fighting Die",
+      "value_kind": "step_die",
+      "default_value": "d8",
+      "category": "trait"
+    },
+    "parry": {
+      "prop_id": "parry",
+      "label": "Parry",
+      "value_kind": "int",
+      "default_value": 5,
+      "min_value": 2,
+      "max_value": 20,
+      "category": "defense"
+    }
+  },
+  "resource_pools": {
+    "bennies": {
+      "pool_id": "bennies",
+      "label": "Fate Tokens",
+      "default_current": 3,
+      "max_formula": "5",
+      "min_value": 0,
+      "reset_on": "session"
+    }
+  },
+  "resolutions": {
+    "step_trait_strike": {
+      "mech_id": "step_trait_strike",
+      "label": "Exploding Step-Die Strike",
+      "randomizer": {
+        "kind": "step_dice",
+        "step_die_formula": "@self.fighting_die",
+        "wild_die_sides": 6,
+        "explode": true,
+        "face_symbols": {
+          "1": [
+            "despair"
+          ],
+          "4": [
+            "advantage"
+          ],
+          "6": [
+            "success"
+          ],
+          "8": [
+            "triumph"
+          ]
+        }
+      },
+      "target_formula": "@target.parry",
+      "tiers": [
+        {
+          "tier_id": "raise",
+          "label": "Hit with a Raise!",
+          "condition": "@roll.total >= @roll.target + 4",
+          "effects": [
+            {
+              "kind": "add_condition",
+              "target_scope": "target",
+              "target_key": "shaken",
+              "formula": "1"
+            },
+            {
+              "kind": "add_condition",
+              "target_scope": "self",
+              "target_key": "inspired",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "hit",
+          "label": "Target Shaken",
+          "condition": "@roll.total >= @roll.target",
+          "effects": [
+            {
+              "kind": "add_condition",
+              "target_scope": "target",
+              "target_key": "shaken",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "miss",
+          "label": "Parried",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Steel rings cleanly on steel."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "conditions": {
+    "shaken": {
+      "condition_id": "shaken",
+      "label": "Shaken",
+      "description": "Reeling from impact; aggressive strikes are blocked until soaked.",
+      "blocks_tags": [
+        "aggressive"
+      ],
+      "persistent_flag": true
+    },
+    "inspired": {
+      "condition_id": "inspired",
+      "label": "Inspired",
+      "description": "Momentum flows cleanly after a triumph roll.",
+      "default_duration_turns": 2
+    }
+  },
+  "actions": {
+    "wild_strike": {
+      "action_id": "wild_strike",
+      "label": "Wild Card Strike",
+      "category": "action",
+      "resolution_id": "step_trait_strike",
+      "requires_target": true,
+      "tags": [
+        "aggressive"
+      ]
+    },
+    "soak_shaken": {
+      "action_id": "soak_shaken",
+      "label": "Spend Fate Token to Recover",
+      "category": "action",
+      "requires": "has_condition(@self, 'shaken')",
+      "pool_costs": {
+        "bennies": "1"
+      },
+      "default_effects": [
+        {
+          "kind": "remove_condition",
+          "target_scope": "self",
+          "target_key": "shaken",
+          "formula": "0"
+        }
+      ]
+    }
+  },
+  "event_hooks": {},
+  "flow_config": {
+    "default_mode": "round_initiative",
+    "initiative_formula": "1"
+  }
+}

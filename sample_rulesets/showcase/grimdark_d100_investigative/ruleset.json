@@ -1,0 +1,290 @@
+{
+  "manifest": {
+    "schema_version": "0.1.0",
+    "package_type": "ruleset",
+    "package_id": "grimdark_d100_investigative",
+    "name": "Grimdark d100 Investigative",
+    "version": "0.1.0",
+    "description": "Original cosmic horror and mystery ruleset using percentile roll-under degrees of success, sanity, and skill ticks.",
+    "authors": [
+      "Meddah Contributors"
+    ],
+    "license": "CC0-1.0"
+  },
+  "declared_primitives": [
+    "d100_roll_under",
+    "push_roll",
+    "sanity_track",
+    "resurrection_none",
+    "skill_usage_ticks",
+    "freeform_investigation"
+  ],
+  "properties": {
+    "spot_hidden": {
+      "prop_id": "spot_hidden",
+      "label": "Observe Clues",
+      "value_kind": "int",
+      "default_value": 50,
+      "min_value": 1,
+      "max_value": 99,
+      "category": "skill"
+    },
+    "occult": {
+      "prop_id": "occult",
+      "label": "Occult Lore",
+      "value_kind": "int",
+      "default_value": 35,
+      "min_value": 1,
+      "max_value": 99,
+      "category": "skill"
+    },
+    "library_use": {
+      "prop_id": "library_use",
+      "label": "Archival Research",
+      "value_kind": "int",
+      "default_value": 60,
+      "min_value": 1,
+      "max_value": 99,
+      "category": "skill"
+    },
+    "agility_pct": {
+      "prop_id": "agility_pct",
+      "label": "Reflex Rating",
+      "value_kind": "int",
+      "default_value": 55,
+      "min_value": 1,
+      "max_value": 99,
+      "category": "attribute"
+    },
+    "mind_pct": {
+      "prop_id": "mind_pct",
+      "label": "Cognition Rating",
+      "value_kind": "int",
+      "default_value": 60,
+      "min_value": 1,
+      "max_value": 99,
+      "category": "attribute"
+    },
+    "resolve_pct": {
+      "prop_id": "resolve_pct",
+      "label": "Resolve Rating",
+      "value_kind": "int",
+      "default_value": 55,
+      "min_value": 1,
+      "max_value": 99,
+      "category": "attribute"
+    }
+  },
+  "resource_pools": {
+    "vitality": {
+      "pool_id": "vitality",
+      "label": "Wounds Capacity",
+      "default_current": 12,
+      "max_formula": "14",
+      "min_value": 0,
+      "reset_on": "medical_care"
+    },
+    "sanity": {
+      "pool_id": "sanity",
+      "label": "Lucidity",
+      "default_current": 55,
+      "max_formula": "99",
+      "min_value": 0,
+      "reset_on": "manual"
+    },
+    "luck": {
+      "pool_id": "luck",
+      "label": "Fortune",
+      "default_current": 50,
+      "max_formula": "99",
+      "min_value": 0,
+      "reset_on": "manual"
+    }
+  },
+  "resolutions": {
+    "d100_skill_check": {
+      "mech_id": "d100_skill_check",
+      "label": "Percentile Roll-Under Check",
+      "randomizer": {
+        "kind": "dice_formula",
+        "formula": "1d100"
+      },
+      "target_formula": "@self.spot_hidden",
+      "tiers": [
+        {
+          "tier_id": "critical",
+          "label": "Critical Success (01)",
+          "condition": "@roll.raw_max == 1",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "clues_uncovered",
+              "formula": "2"
+            }
+          ]
+        },
+        {
+          "tier_id": "fumble",
+          "label": "Fumble (96-100)",
+          "condition": "@roll.raw_max >= 96",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "sanity",
+              "formula": "-3"
+            }
+          ]
+        },
+        {
+          "tier_id": "extreme",
+          "label": "Extreme Success",
+          "condition": "@roll.total <= floor(@roll.target / 5)",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "clues_uncovered",
+              "formula": "2"
+            }
+          ]
+        },
+        {
+          "tier_id": "hard",
+          "label": "Hard Success",
+          "condition": "@roll.total <= floor(@roll.target / 2)",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "clues_uncovered",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "regular",
+          "label": "Regular Success",
+          "condition": "@roll.total <= @roll.target",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "clues_uncovered",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "failure",
+          "label": "Failure",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "sanity",
+              "formula": "-1"
+            }
+          ]
+        }
+      ]
+    },
+    "d100_sanity_check": {
+      "mech_id": "d100_sanity_check",
+      "label": "Lucidity Shock Check",
+      "randomizer": {
+        "kind": "dice_formula",
+        "formula": "1d100"
+      },
+      "target_formula": "@self.pools.sanity",
+      "tiers": [
+        {
+          "tier_id": "steady",
+          "label": "Composure Held",
+          "condition": "@roll.total <= @roll.target",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "sanity",
+              "formula": "-1"
+            }
+          ]
+        },
+        {
+          "tier_id": "shaken",
+          "label": "Acute Shock",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "sanity",
+              "formula": "-5"
+            },
+            {
+              "kind": "add_condition",
+              "target_scope": "self",
+              "target_key": "bout_of_madness",
+              "formula": "1",
+              "duration_turns": 2
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "conditions": {
+    "bout_of_madness": {
+      "condition_id": "bout_of_madness",
+      "label": "Bout of Madness",
+      "description": "Overwhelmed by cosmic dread; calm methodical research is blocked.",
+      "blocks_tags": [
+        "calm_research"
+      ],
+      "default_duration_turns": 2,
+      "visual_priority": 8
+    }
+  },
+  "actions": {
+    "investigate_clue": {
+      "action_id": "investigate_clue",
+      "label": "Inspect Evidence",
+      "category": "action",
+      "resolution_id": "d100_skill_check",
+      "requires": "true",
+      "tags": [
+        "calm_research"
+      ]
+    },
+    "push_investigation": {
+      "action_id": "push_investigation",
+      "label": "Push Investigation",
+      "category": "action",
+      "resolution_id": "d100_skill_check",
+      "pool_costs": {
+        "luck": "5"
+      },
+      "modifier_override_formula": "-15",
+      "tags": [
+        "investigation"
+      ]
+    },
+    "witness_horror": {
+      "action_id": "witness_horror",
+      "label": "Confront Unnatural Sight",
+      "category": "action",
+      "resolution_id": "d100_sanity_check",
+      "tags": [
+        "horror_save"
+      ]
+    }
+  },
+  "event_hooks": {},
+  "flow_config": {
+    "default_mode": "freeform",
+    "initiative_formula": "@self.agility_pct"
+  }
+}

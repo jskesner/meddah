@@ -1,0 +1,229 @@
+{
+  "manifest": {
+    "schema_version": "0.1.0",
+    "package_type": "ruleset",
+    "package_id": "narrative_2d6_clocks",
+    "name": "Narrative 2d6 Heists & Clocks",
+    "version": "0.1.0",
+    "description": "Narrative scoundrel & heist ruleset using 2d6 tiered outcomes, progress clocks, popcorn spotlight, and abstract load.",
+    "authors": [
+      "Meddah Contributors (Adapted from Open PbtA/FitD Conventions)"
+    ],
+    "license": "CC-BY-4.0"
+  },
+  "declared_primitives": [
+    "2d6_tiered_move",
+    "popcorn_spotlight",
+    "progress_clocks",
+    "resistance_reaction",
+    "abstract_load",
+    "playbook_triggers"
+  ],
+  "properties": {
+    "prowl": {
+      "prop_id": "prowl",
+      "label": "Prowl",
+      "value_kind": "int",
+      "default_value": 2,
+      "min_value": -2,
+      "max_value": 4,
+      "category": "action_rating"
+    },
+    "finesse": {
+      "prop_id": "finesse",
+      "label": "Finesse",
+      "value_kind": "int",
+      "default_value": 1,
+      "min_value": -2,
+      "max_value": 4,
+      "category": "action_rating"
+    },
+    "sway": {
+      "prop_id": "sway",
+      "label": "Sway",
+      "value_kind": "int",
+      "default_value": 1,
+      "min_value": -2,
+      "max_value": 4,
+      "category": "action_rating"
+    },
+    "attune": {
+      "prop_id": "attune",
+      "label": "Attune",
+      "value_kind": "int",
+      "default_value": 0,
+      "min_value": -2,
+      "max_value": 4,
+      "category": "action_rating"
+    }
+  },
+  "resource_pools": {
+    "stress": {
+      "pool_id": "stress",
+      "label": "Stress",
+      "default_current": 0,
+      "max_formula": "9",
+      "min_value": 0,
+      "reset_on": "downtime_vice",
+      "track_segments": 9
+    },
+    "armor_uses": {
+      "pool_id": "armor_uses",
+      "label": "Armor Uses",
+      "default_current": 1,
+      "max_formula": "2",
+      "min_value": 0,
+      "reset_on": "score"
+    },
+    "playbook_xp": {
+      "pool_id": "playbook_xp",
+      "label": "Playbook XP",
+      "default_current": 0,
+      "max_formula": "8",
+      "min_value": 0,
+      "reset_on": "manual",
+      "track_segments": 8
+    }
+  },
+  "resolutions": {
+    "move_2d6_prowl": {
+      "mech_id": "move_2d6_prowl",
+      "label": "2d6 Narrative Move",
+      "randomizer": {
+        "kind": "dice_formula",
+        "formula": "2d6"
+      },
+      "modifier_formula": "@self.prowl",
+      "tiers": [
+        {
+          "tier_id": "crit",
+          "label": "Critical Breakthrough (12+)",
+          "condition": "@roll.total >= 12",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "heist_progress",
+              "formula": "2"
+            }
+          ]
+        },
+        {
+          "tier_id": "full_success",
+          "label": "Full Success (10-11)",
+          "condition": "@roll.total >= 10",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "heist_progress",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "mixed_success",
+          "label": "Success at a Cost (7-9)",
+          "condition": "@roll.total >= 7",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "heist_progress",
+              "formula": "1"
+            },
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "alert_heat",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "miss_hard_move",
+          "label": "Complication / Hard Move (6-)",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "advance_clock",
+              "target_scope": "scene",
+              "target_key": "alert_heat",
+              "formula": "2"
+            },
+            {
+              "kind": "modify_pool",
+              "target_scope": "self",
+              "target_key": "stress",
+              "formula": "2"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "conditions": {
+    "resisted_harm": {
+      "condition_id": "resisted_harm",
+      "label": "Brace & Resist",
+      "description": "Marked armor or resisted a hard consequence.",
+      "default_duration_turns": 1
+    }
+  },
+  "actions": {
+    "infiltrate_action": {
+      "action_id": "infiltrate_action",
+      "label": "Make Heist Move",
+      "category": "action",
+      "resolution_id": "move_2d6_prowl",
+      "allow_reactions": true,
+      "requires_target": true,
+      "tags": [
+        "move",
+        "heist"
+      ]
+    },
+    "resist_consequence": {
+      "action_id": "resist_consequence",
+      "label": "Mark Armor / Resist",
+      "category": "reaction",
+      "trigger": "on_targeted",
+      "pool_costs": {
+        "armor_uses": "1"
+      },
+      "default_effects": [
+        {
+          "kind": "add_condition",
+          "target_scope": "self",
+          "target_key": "resisted_harm",
+          "formula": "1"
+        }
+      ],
+      "tags": [
+        "reaction",
+        "resistance"
+      ]
+    },
+    "clear_stress_downtime": {
+      "action_id": "clear_stress_downtime",
+      "label": "Recover Vice",
+      "category": "action",
+      "default_effects": [
+        {
+          "kind": "modify_pool",
+          "target_scope": "self",
+          "target_key": "stress",
+          "formula": "-2"
+        }
+      ],
+      "tags": [
+        "downtime"
+      ]
+    }
+  },
+  "event_hooks": {},
+  "flow_config": {
+    "default_mode": "popcorn_spotlight",
+    "initiative_formula": "@self.prowl"
+  }
+}

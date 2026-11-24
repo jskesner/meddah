@@ -1,0 +1,124 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_2d6_move_clocks_and_spotlight",
+      "description": "Popcorn spotlight handoff followed by 2d6 heist move advancing progress/heat clocks and abstract load check.",
+      "scene_id": "clockwork_train_car_2",
+      "scene_seed": "2d6-train-seed-4",
+      "flow_start_mode": "popcorn_spotlight",
+      "entities": [
+        {
+          "entity_id": "pc_sparks",
+          "name": "Sparks",
+          "base_properties": {
+            "prowl": 2
+          },
+          "pools": {
+            "stress": 1,
+            "armor_uses": 1
+          }
+        },
+        {
+          "entity_id": "pc_corvus",
+          "name": "Corvus",
+          "base_properties": {
+            "prowl": 3
+          },
+          "pools": {
+            "stress": 0,
+            "armor_uses": 0
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "handoff_spotlight",
+          "next_actor_id": "pc_corvus"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_corvus",
+          "action_id": "infiltrate_action",
+          "target_id": "pc_sparks",
+          "expect_status": "pending_reaction"
+        },
+        {
+          "kind": "reaction",
+          "responses": [
+            [
+              "pc_sparks",
+              null
+            ]
+          ],
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "flow_active_actor": "pc_corvus",
+        "inventory_check": "abstract_load_ok"
+      }
+    },
+    {
+      "scenario_id": "scenario_resistance_armor_spend",
+      "description": "Target elects resist_consequence during PENDING_REACTION, spending armor_uses and gaining resisted_harm.",
+      "scene_id": "clockwork_engine",
+      "scene_seed": "2d6-resist-seed-8",
+      "flow_start_mode": "popcorn_spotlight",
+      "entities": [
+        {
+          "entity_id": "foe_warden",
+          "name": "Rail Warden",
+          "base_properties": {
+            "prowl": 1
+          },
+          "pools": {
+            "stress": 0,
+            "armor_uses": 1
+          }
+        },
+        {
+          "entity_id": "pc_sparks",
+          "name": "Sparks",
+          "base_properties": {
+            "prowl": 2
+          },
+          "pools": {
+            "stress": 2,
+            "armor_uses": 1
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "foe_warden",
+          "action_id": "infiltrate_action",
+          "target_id": "pc_sparks",
+          "expect_status": "pending_reaction"
+        },
+        {
+          "kind": "reaction",
+          "responses": [
+            [
+              "pc_sparks",
+              "resist_consequence"
+            ]
+          ],
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_sparks": {
+            "pools": {
+              "armor_uses": 0
+            },
+            "has_conditions": [
+              "resisted_harm"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

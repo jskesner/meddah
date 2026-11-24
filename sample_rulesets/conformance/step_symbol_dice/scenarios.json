@@ -1,0 +1,110 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_step_dice_strike_and_symbols",
+      "description": "Wild Card rolls d10 fighting die + exploding wild d6 and records symbol faces.",
+      "scene_id": "red_gorge_bridge",
+      "scene_seed": "step-dice-seed-3",
+      "flow_start_mode": "round_initiative",
+      "entities": [
+        {
+          "entity_id": "pc_red",
+          "name": "Red Harlan",
+          "base_properties": {
+            "fighting_die": "d10",
+            "parry": 6
+          },
+          "pools": {
+            "bennies": 3
+          }
+        },
+        {
+          "entity_id": "foe_bandit",
+          "name": "Canyon Outlaw",
+          "base_properties": {
+            "fighting_die": "d6",
+            "parry": 4
+          },
+          "pools": {
+            "bennies": 1
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_red",
+          "action_id": "wild_strike",
+          "target_id": "foe_bandit",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "expect_roll_kind": "step_dice"
+      }
+    },
+    {
+      "scenario_id": "scenario_soak_shaken_with_benny",
+      "description": "Shaken hero cannot take aggressive strike until spending a benny on soak_shaken.",
+      "scene_id": "dust_saloon",
+      "scene_seed": "step-soak-seed-14",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_ace",
+          "name": "Ace",
+          "base_properties": {
+            "fighting_die": "d8",
+            "parry": 5
+          },
+          "pools": {
+            "bennies": 3
+          },
+          "conditions": {
+            "shaken": {
+              "condition_id": "shaken"
+            }
+          }
+        },
+        {
+          "entity_id": "foe_bouncer",
+          "name": "Bouncer",
+          "base_properties": {
+            "fighting_die": "d6",
+            "parry": 4
+          },
+          "pools": {
+            "bennies": 0
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_ace",
+          "action_id": "soak_shaken",
+          "expect_status": "executed"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_ace",
+          "action_id": "wild_strike",
+          "target_id": "foe_bouncer",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_ace": {
+            "pools": {
+              "bennies": 2
+            },
+            "lacks_conditions": [
+              "shaken"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

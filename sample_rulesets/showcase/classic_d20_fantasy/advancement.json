@@ -1,0 +1,54 @@
+{
+  "level_up": {
+    "paradigm": "level_up_graph",
+    "tiers": [
+      {
+        "tier": 1,
+        "xp_required": 0
+      },
+      {
+        "tier": 2,
+        "xp_required": 300,
+        "property_bonuses": {
+          "con_score": 0
+        },
+        "pool_max_bonuses": {
+          "vitality": 6,
+          "hit_dice": 1,
+          "spell_slots_1": 1
+        },
+        "granted_tags": [
+          "tier_2_veteran"
+        ]
+      },
+      {
+        "tier": 3,
+        "xp_required": 900,
+        "property_bonuses": {
+          "proficiency": 1
+        },
+        "pool_max_bonuses": {
+          "vitality": 6,
+          "hit_dice": 1,
+          "spell_slots_1": 1
+        },
+        "granted_tags": [
+          "tier_3_champion"
+        ]
+      }
+    ],
+    "archetype_options": [
+      {
+        "option_id": "battle_master",
+        "label": "Tactical Master",
+        "requires": "has_tag(@self, 'martial_training')",
+        "property_bonuses": {
+          "str_score": 1
+        },
+        "granted_tags": [
+          "maneuver_dice"
+        ]
+      }
+    ]
+  }
+}

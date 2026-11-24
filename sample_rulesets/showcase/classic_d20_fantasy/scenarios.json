@@ -1,0 +1,149 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_melee_and_shield_reaction",
+      "description": "Attacker triggers melee_strike, defender opens PENDING_REACTION and casts ward_shield (+4 defense).",
+      "scene_id": "crypt_hall",
+      "scene_seed": "d20-shield-seed-1",
+      "flow_start_mode": "round_initiative",
+      "entities": [
+        {
+          "entity_id": "pc_kael",
+          "name": "Kael",
+          "base_properties": {
+            "str_score": 16,
+            "dex_score": 12
+          },
+          "pools": {
+            "vitality": 14,
+            "reaction_token": 1,
+            "spell_slots_1": 2
+          }
+        },
+        {
+          "entity_id": "pc_lyra",
+          "name": "Lyra",
+          "base_properties": {
+            "str_score": 10,
+            "dex_score": 14
+          },
+          "pools": {
+            "vitality": 12,
+            "reaction_token": 1,
+            "spell_slots_1": 2
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_kael",
+          "action_id": "melee_strike",
+          "target_id": "pc_lyra",
+          "expect_status": "pending_reaction"
+        },
+        {
+          "kind": "reaction",
+          "responses": [
+            [
+              "pc_lyra",
+              "ward_shield"
+            ]
+          ],
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_lyra": {
+            "pools": {
+              "reaction_token": 0,
+              "spell_slots_1": 1
+            },
+            "has_conditions": [
+              "warded_shield"
+            ],
+            "derived_properties": {
+              "armor_rating": 16
+            }
+          }
+        },
+        "inventory_check": "weight_limit_ok"
+      }
+    },
+    {
+      "scenario_id": "scenario_lethal_blow_dying_and_stabilize",
+      "description": "Zeroing vitality attaches dying via on_action_resolved hook; ally stabilize clears dying.",
+      "scene_id": "crypt_altar",
+      "scene_seed": "d20-stabilize-seed-9",
+      "flow_start_mode": "round_initiative",
+      "entities": [
+        {
+          "entity_id": "foe_goblin",
+          "name": "Goblin Raider",
+          "base_properties": {
+            "str_score": 20,
+            "dex_score": 10
+          },
+          "pools": {
+            "vitality": 8
+          }
+        },
+        {
+          "entity_id": "pc_vane",
+          "name": "Vane",
+          "base_properties": {
+            "dex_score": 10
+          },
+          "pools": {
+            "vitality": 4,
+            "reaction_token": 0,
+            "spell_slots_1": 0
+          }
+        },
+        {
+          "entity_id": "pc_medic",
+          "name": "Lyra",
+          "base_properties": {
+            "wis_score": 16
+          },
+          "pools": {
+            "vitality": 12
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "foe_goblin",
+          "action_id": "melee_strike",
+          "target_id": "pc_vane",
+          "bypass_reactions": true,
+          "expect_status": "executed"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_medic",
+          "action_id": "stabilize",
+          "target_id": "pc_vane",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_vane": {
+            "pools": {
+              "vitality": 0
+            },
+            "lacks_conditions": [
+              "dying"
+            ],
+            "has_conditions": [
+              "stabilized"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,418 @@
+{
+  "$defs": {
+    "ChannelingSpec": {
+      "additionalProperties": false,
+      "description": "ECA Step 4 non-blocking interruptible channeling countdown gate.",
+      "properties": {
+        "channel_condition_id": {
+          "default": "channeling",
+          "minLength": 1,
+          "title": "Channel Condition Id",
+          "type": "string"
+        },
+        "completion_effects": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandPayload"
+          },
+          "title": "Completion Effects",
+          "type": "array"
+        },
+        "duration_turns": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Duration Turns",
+          "type": "integer"
+        },
+        "interrupt_on_damage": {
+          "default": true,
+          "title": "Interrupt On Damage",
+          "type": "boolean"
+        },
+        "interrupt_on_move": {
+          "default": true,
+          "title": "Interrupt On Move",
+          "type": "boolean"
+        }
+      },
+      "title": "ChannelingSpec",
+      "type": "object"
+    },
+    "CommandActionPipeline": {
+      "additionalProperties": false,
+      "description": "4-step sandboxed declarative ECA pipeline (zero arbitrary code execution).",
+      "properties": {
+        "channeling": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChannelingSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "costs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandCostSpec"
+          },
+          "title": "Costs",
+          "type": "array"
+        },
+        "failure_notice": {
+          "default": "Requirements not met for this command.",
+          "title": "Failure Notice",
+          "type": "string"
+        },
+        "on_failure": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandPayload"
+          },
+          "title": "On Failure",
+          "type": "array"
+        },
+        "on_partial": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandPayload"
+          },
+          "title": "On Partial",
+          "type": "array"
+        },
+        "on_success": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/CommandPayload"
+          },
+          "title": "On Success",
+          "type": "array"
+        },
+        "requires": {
+          "default": "true",
+          "title": "Requires",
+          "type": "string"
+        },
+        "resolution_step": {
+          "$ref": "#/$defs/CommandResolutionStep"
+        }
+      },
+      "title": "CommandActionPipeline",
+      "type": "object"
+    },
+    "CommandCostSpec": {
+      "additionalProperties": false,
+      "description": "Resource pool or currency deduction checked in ECA Step 1.",
+      "properties": {
+        "amount": {
+          "minimum": 1,
+          "title": "Amount",
+          "type": "integer"
+        },
+        "pool_id": {
+          "minLength": 1,
+          "title": "Pool Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pool_id",
+        "amount"
+      ],
+      "title": "CommandCostSpec",
+      "type": "object"
+    },
+    "CommandPayload": {
+      "additionalProperties": false,
+      "description": "Single deterministic state, UI, room, or narrative effect in ECA Step 3.",
+      "properties": {
+        "actor_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor Text"
+        },
+        "kind": {
+          "enum": [
+            "mud_text",
+            "audio_cue",
+            "vfx_cue",
+            "modify_pool",
+            "set_property",
+            "add_condition",
+            "remove_condition",
+            "add_item",
+            "remove_item",
+            "trigger_contraption",
+            "advance_clock",
+            "teleport",
+            "open_handout",
+            "open_ui_drawer",
+            "advance_quest",
+            "record_deed"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "room_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Room Text"
+        },
+        "target_key": {
+          "default": "",
+          "title": "Target Key",
+          "type": "string"
+        },
+        "target_scope": {
+          "default": "room",
+          "enum": [
+            "actor",
+            "target",
+            "room",
+            "table"
+          ],
+          "title": "Target Scope",
+          "type": "string"
+        },
+        "target_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Text"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "CommandPayload",
+      "type": "object"
+    },
+    "CommandResolutionStep": {
+      "additionalProperties": false,
+      "description": "ECA Step 2 optional skill check, target prompt, or random table lookup.",
+      "properties": {
+        "confirmation_prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confirmation Prompt"
+        },
+        "kind": {
+          "default": "unconditional",
+          "enum": [
+            "unconditional",
+            "skill_check",
+            "contested_check",
+            "target_confirmation",
+            "random_table"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "resolution_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resolution Id"
+        },
+        "table_die_sides": {
+          "default": 100,
+          "maximum": 1000,
+          "minimum": 2,
+          "title": "Table Die Sides",
+          "type": "integer"
+        },
+        "table_outcomes": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RandomTableOutcome"
+          },
+          "title": "Table Outcomes",
+          "type": "array"
+        }
+      },
+      "title": "CommandResolutionStep",
+      "type": "object"
+    },
+    "RandomTableOutcome": {
+      "additionalProperties": false,
+      "description": "Inclusive roll range mapping for random_table ECA resolutions.",
+      "properties": {
+        "branch": {
+          "default": "success",
+          "enum": [
+            "success",
+            "partial",
+            "failure"
+          ],
+          "title": "Branch",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "max_roll": {
+          "title": "Max Roll",
+          "type": "integer"
+        },
+        "min_roll": {
+          "title": "Min Roll",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "min_roll",
+        "max_roll"
+      ],
+      "title": "RandomTableOutcome",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Host/GM-created custom MUD command backed by a declarative ECA pipeline.",
+  "properties": {
+    "aliases": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Aliases",
+      "type": "array"
+    },
+    "command_id": {
+      "minLength": 1,
+      "title": "Command Id",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "eligibility": {
+      "default": "all_players",
+      "enum": [
+        "all_players",
+        "requires_tag_or_faction",
+        "gm_only",
+        "host_admin_only"
+      ],
+      "title": "Eligibility",
+      "type": "string"
+    },
+    "pipeline": {
+      "$ref": "#/$defs/CommandActionPipeline"
+    },
+    "required_tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Tags",
+      "type": "array"
+    },
+    "requires_target": {
+      "default": false,
+      "title": "Requires Target",
+      "type": "boolean"
+    },
+    "scope": {
+      "default": "campaign_overlay",
+      "enum": [
+        "room_or_poi_only",
+        "region_or_hub_only",
+        "campaign_overlay",
+        "guild_server_global",
+        "package_bundled"
+      ],
+      "title": "Scope",
+      "type": "string"
+    },
+    "scope_target_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scope Target Id"
+    },
+    "syntax_hint": {
+      "default": "",
+      "title": "Syntax Hint",
+      "type": "string"
+    },
+    "verb": {
+      "minLength": 1,
+      "title": "Verb",
+      "type": "string"
+    }
+  },
+  "required": [
+    "command_id",
+    "verb",
+    "pipeline"
+  ],
+  "title": "CustomMudCommandBlock",
+  "type": "object"
+}

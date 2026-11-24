@@ -1,0 +1,78 @@
+{
+  "starting_pools": {
+    "vitality": 12,
+    "sanity": 55,
+    "luck": 50
+  },
+  "steps": [
+    {
+      "kind": "random_roll_assign",
+      "step_id": "roll_characteristics",
+      "label": "Roll Investigator Characteristics",
+      "target_properties": [
+        "agility_pct",
+        "mind_pct",
+        "resolve_pct"
+      ],
+      "roll_spec": {
+        "kind": "dice_formula",
+        "formula": "3d6"
+      },
+      "assign_mode": "pool_assign",
+      "min_total_mercy": 24,
+      "max_rerolls": 8
+    },
+    {
+      "kind": "package_pick",
+      "step_id": "choose_occupation",
+      "label": "Choose Occupation",
+      "options": [
+        {
+          "option_id": "private_investigator",
+          "label": "Private Investigator",
+          "property_bonuses": {
+            "spot_hidden": 20
+          },
+          "granted_tags": [
+            "licensed_sleuth"
+          ],
+          "granted_actions": [
+            "investigate_clue",
+            "push_investigation"
+          ]
+        },
+        {
+          "option_id": "antiquarian_professor",
+          "label": "Antiquarian Professor",
+          "property_bonuses": {
+            "library_use": 20,
+            "occult": 15
+          },
+          "granted_tags": [
+            "university_fellow"
+          ]
+        },
+        {
+          "option_id": "field_physician",
+          "label": "Field Physician",
+          "property_bonuses": {
+            "spot_hidden": 10
+          },
+          "granted_tags": [
+            "trauma_surgeon"
+          ]
+        },
+        {
+          "option_id": "war_veteran",
+          "label": "War Veteran",
+          "property_bonuses": {
+            "agility_pct": 10
+          },
+          "granted_tags": [
+            "hardened_nerves"
+          ]
+        }
+      ]
+    }
+  ]
+}

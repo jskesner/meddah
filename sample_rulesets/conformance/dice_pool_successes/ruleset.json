@@ -1,0 +1,150 @@
+{
+  "manifest": {
+    "schema_version": "0.1.0",
+    "package_type": "ruleset",
+    "package_id": "dice_pool_successes",
+    "name": "Dice Pool Successes & Glitch",
+    "version": "0.1.0",
+    "description": "Original cyberpunk-style Nd6 dice pool conformance ruleset counting hits >= 5 and >50% ones glitches.",
+    "authors": [
+      "Meddah Contributors"
+    ],
+    "license": "CC0-1.0"
+  },
+  "declared_primitives": [
+    "dice_pool_hits",
+    "strict_glitch_ratio",
+    "edge_pool_boost"
+  ],
+  "properties": {
+    "agility": {
+      "prop_id": "agility",
+      "label": "Agility",
+      "value_kind": "int",
+      "default_value": 4,
+      "min_value": 1,
+      "max_value": 12,
+      "category": "attribute"
+    },
+    "firearms": {
+      "prop_id": "firearms",
+      "label": "Firearms",
+      "value_kind": "int",
+      "default_value": 4,
+      "min_value": 0,
+      "max_value": 12,
+      "category": "skill"
+    }
+  },
+  "resource_pools": {
+    "edge": {
+      "pool_id": "edge",
+      "label": "Edge",
+      "default_current": 2,
+      "max_formula": "3",
+      "min_value": 0,
+      "reset_on": "scene"
+    },
+    "condition_track": {
+      "pool_id": "condition_track",
+      "label": "Condition Track",
+      "default_current": 10,
+      "max_formula": "12",
+      "min_value": 0,
+      "reset_on": "rest"
+    }
+  },
+  "resolutions": {
+    "pool_shot": {
+      "mech_id": "pool_shot",
+      "label": "Firearms Pool Test",
+      "randomizer": {
+        "kind": "dice_pool",
+        "pool_size_formula": "@self.agility + @self.firearms",
+        "die_sides": 6,
+        "success_threshold": 5,
+        "glitch_face": 1,
+        "glitch_ratio": 0.5
+      },
+      "target_formula": "2",
+      "tiers": [
+        {
+          "tier_id": "critical_glitch",
+          "label": "Critical Glitch",
+          "condition": "@roll.is_glitch && @roll.hits == 0",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Weapon jams catastrophically!"
+            }
+          ]
+        },
+        {
+          "tier_id": "glitch_success",
+          "label": "Glitch Hit",
+          "condition": "@roll.is_glitch && @roll.hits >= @roll.target",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "target",
+              "target_key": "condition_track",
+              "formula": "-2"
+            }
+          ]
+        },
+        {
+          "tier_id": "clean_success",
+          "label": "Clean Hit",
+          "condition": "@roll.hits >= @roll.target",
+          "effects": [
+            {
+              "kind": "modify_pool",
+              "target_scope": "target",
+              "target_key": "condition_track",
+              "formula": "-3"
+            }
+          ]
+        },
+        {
+          "tier_id": "miss",
+          "label": "Shots Wide",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Rounds ricochet off cover."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "conditions": {},
+  "actions": {
+    "snap_shot": {
+      "action_id": "snap_shot",
+      "label": "Snap Shot",
+      "category": "action",
+      "resolution_id": "pool_shot",
+      "requires_target": true
+    },
+    "edge_burst_shot": {
+      "action_id": "edge_burst_shot",
+      "label": "Edge Boosted Shot",
+      "category": "action",
+      "resolution_id": "pool_shot",
+      "requires_target": true,
+      "pool_costs": {
+        "edge": "1"
+      },
+      "modifier_override_formula": "3"
+    }
+  },
+  "event_hooks": {},
+  "flow_config": {
+    "default_mode": "round_initiative",
+    "initiative_formula": "@self.agility"
+  }
+}

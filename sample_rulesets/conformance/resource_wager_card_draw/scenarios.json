@@ -1,0 +1,97 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_deck_draw_without_replacement",
+      "description": "Four sequential fate card draws deplete the shared 54-card deck without any duplicate cards.",
+      "scene_id": "frontier_crossroads",
+      "scene_seed": "deck-draw-seed-19",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_sol",
+          "name": "Sol",
+          "base_properties": {
+            "wits_rating": 3
+          },
+          "pools": {
+            "momentum": 6
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_sol",
+          "action_id": "draw_fate_card",
+          "expect_status": "executed"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_sol",
+          "action_id": "draw_fate_card",
+          "expect_status": "executed"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_sol",
+          "action_id": "draw_fate_card",
+          "expect_status": "executed"
+        },
+        {
+          "kind": "action",
+          "actor_id": "pc_sol",
+          "action_id": "draw_fate_card",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "deck_unique_drawn_count": {
+          "fate_deck": 4
+        },
+        "deck_draw_pile_remaining": {
+          "fate_deck": 50
+        }
+      }
+    },
+    {
+      "scenario_id": "scenario_momentum_resource_wager",
+      "description": "Burning 3 Momentum with wager_bonus=4 guarantees breakthrough total (2+3+4=9 >= 8) and +2 clock.",
+      "scene_id": "iron_ridge",
+      "scene_seed": "wager-seed-21",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_sol",
+          "name": "Sol",
+          "base_properties": {
+            "wits_rating": 3
+          },
+          "pools": {
+            "momentum": 6
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_sol",
+          "action_id": "burn_momentum",
+          "wager_bonus": 4,
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_sol": {
+            "pools": {
+              "momentum": 3
+            }
+          }
+        },
+        "clocks": {
+          "expedition_progress": 2
+        }
+      }
+    }
+  ]
+}

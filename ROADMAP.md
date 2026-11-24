@@ -5,7 +5,7 @@ phases:
   - id: P1
     name: Core Agnostic Ruleset VM, Module Registry, Layered Inventory, Creation/Advancement & MUD Parser
     mvp: true
-    status: In Progress
+    status: Done
     target_release: v0.1.0
     spec: ./docs/design/tech_spec_01_core_vm_and_ingestion.md
   - id: P2
@@ -104,11 +104,11 @@ phases:
 ## Track A — Contiguous MVP Phases (`P1`–`P6` + `P2.5`)
 
 ### [P1] Phase 1: Core Agnostic Ruleset VM, Module Registry, Layered Inventory, Creation/Advancement & MUD Parser
-- **Status**: `In Progress` | **MVP**: `Yes` | **Target Tag**: `v0.1.0`
+- **Status**: `Done` | **MVP**: `Yes` | **Target Tag**: `v0.1.0`
 - [x] `backend/app/ruleset_vm/`: Safe AST evaluator (`0` eval/exec), named seeded RNG streams, flow controller (`freeform` / `round_initiative` / `popcorn_spotlight`), reaction & contested windows, universal `inventory_graph.py` (`abstract_slots` & `anatomical_layered`), `advancement.py` (5 creation + 5 progression paradigms).
 - [x] `backend/app/ruleset_vm/module_registry.py` & `tools/lint_modularity.py` + `tools/lint_agnosticism.py`.
-- [ ] `backend/app/mud_parser/`: `<5ms` deterministic lexer, `social_dsl.py`, 60+ 3-perspective social emotes, `custom_commands.py` (host custom commands/emotes & 4-step declarative `ECA` pipelines), `diegetic_comms.py`.
-- [ ] 7 Conformance Ruleset fixtures (`3 Showcase + 4 Conformance`) & `pytest -m zero_ai` suite passing.
+- [x] `backend/app/mud_parser/`: `<5ms` deterministic lexer, `social_dsl.py`, 60+ 3-perspective social emotes, `custom_commands.py` (host custom commands/emotes & 4-step declarative `ECA` pipelines), `diegetic_comms.py`.
+- [x] 7 Conformance Ruleset fixtures (`3 Showcase + 4 Conformance`) & `pytest -m zero_ai` suite passing.
 
 ### [P2] Phase 2: Ruleset Ingestion Pipeline, 14-Domain Semantic Probes, AI Co-Designer & Diff Workbench Backend
 - **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.2.0`

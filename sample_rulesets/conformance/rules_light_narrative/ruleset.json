@@ -1,0 +1,99 @@
+{
+  "manifest": {
+    "schema_version": "0.1.0",
+    "package_type": "ruleset",
+    "package_id": "rules_light_narrative",
+    "name": "Rules-Light Tag Narrative",
+    "version": "0.1.0",
+    "description": "Zero numeric stats and zero resource pools: purely tag- and condition-driven diceless resolution fixture.",
+    "authors": [
+      "Meddah Contributors"
+    ],
+    "license": "CC0-1.0"
+  },
+  "declared_primitives": [
+    "zero_numeric_stats",
+    "tag_and_condition_driven",
+    "unlimited_inventory"
+  ],
+  "properties": {},
+  "resource_pools": {},
+  "resolutions": {
+    "tag_narrative_check": {
+      "mech_id": "tag_narrative_check",
+      "label": "Fiction-First Tag Resolution",
+      "randomizer": {
+        "kind": "none",
+        "base_value": 0
+      },
+      "tiers": [
+        {
+          "tier_id": "empowered_story_beat",
+          "label": "Empowered Fiction Beat",
+          "condition": "has_tag(@self, 'armed_with_ancestral_blade') && !has_condition(@self, 'wounded')",
+          "effects": [
+            {
+              "kind": "add_condition",
+              "target_scope": "target",
+              "target_key": "yielded",
+              "formula": "1"
+            }
+          ]
+        },
+        {
+          "tier_id": "gritty_tradeoff",
+          "label": "Strained Resolve",
+          "condition": "has_condition(@self, 'wounded')",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Fighting through wounds tests your resolve."
+            }
+          ]
+        },
+        {
+          "tier_id": "standard_beat",
+          "label": "Story Continues",
+          "condition": "true",
+          "effects": [
+            {
+              "kind": "emit_message",
+              "target_scope": "scene",
+              "formula": "Story beat advances through fiction first."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "conditions": {
+    "wounded": {
+      "condition_id": "wounded",
+      "label": "Wounded",
+      "description": "Narrative harm impeding effortless triumphs.",
+      "blocks_tags": [
+        "athletic_feat"
+      ]
+    },
+    "yielded": {
+      "condition_id": "yielded",
+      "label": "Yielded",
+      "description": "Disarmed or forced to parley in the fiction."
+    }
+  },
+  "actions": {
+    "declare_story_beat": {
+      "action_id": "declare_story_beat",
+      "label": "Declare Narrative Beat",
+      "category": "action",
+      "resolution_id": "tag_narrative_check",
+      "requires_target": true
+    }
+  },
+  "event_hooks": {},
+  "flow_config": {
+    "default_mode": "freeform",
+    "initiative_formula": "0"
+  }
+}

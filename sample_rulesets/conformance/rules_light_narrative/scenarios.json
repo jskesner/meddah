@@ -1,0 +1,87 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_tag_driven_triumph_zero_stats",
+      "description": "Entity with zero properties and zero pools compels foe to yield solely via narrative tag.",
+      "scene_id": "lantern_gate",
+      "scene_seed": "light-tag-seed-1",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_arden",
+          "name": "Arden",
+          "tags": [
+            "armed_with_ancestral_blade"
+          ]
+        },
+        {
+          "entity_id": "foe_knight",
+          "name": "Oathbound Knight"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_arden",
+          "action_id": "declare_story_beat",
+          "target_id": "foe_knight",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "foe_knight": {
+            "has_conditions": [
+              "yielded"
+            ]
+          }
+        },
+        "inventory_check": "unlimited_ok"
+      }
+    },
+    {
+      "scenario_id": "scenario_wounded_condition_narrative_tradeoff",
+      "description": "Wounded tagless/injured actor resolves gritty_tradeoff tier without numeric crashes.",
+      "scene_id": "rain_courtyard",
+      "scene_seed": "light-wound-seed-2",
+      "flow_start_mode": "freeform",
+      "entities": [
+        {
+          "entity_id": "pc_arden",
+          "name": "Arden",
+          "tags": [
+            "armed_with_ancestral_blade"
+          ],
+          "conditions": {
+            "wounded": {
+              "condition_id": "wounded"
+            }
+          }
+        },
+        {
+          "entity_id": "foe_knight",
+          "name": "Oathbound Knight"
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_arden",
+          "action_id": "declare_story_beat",
+          "target_id": "foe_knight",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "foe_knight": {
+            "lacks_conditions": [
+              "yielded"
+            ]
+          }
+        },
+        "log_contains": "Fighting through wounds tests your resolve."
+      }
+    }
+  ]
+}

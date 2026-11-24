@@ -1,0 +1,102 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "scenario_pool_snap_shot",
+      "description": "Runner rolls (agility + firearms)d6 counting >= 5 hits against a security drone.",
+      "scene_id": "neon_garage",
+      "scene_seed": "pool-seed-11",
+      "flow_start_mode": "round_initiative",
+      "entities": [
+        {
+          "entity_id": "pc_razor",
+          "name": "Razor",
+          "base_properties": {
+            "agility": 5,
+            "firearms": 5
+          },
+          "pools": {
+            "edge": 2,
+            "condition_track": 10
+          }
+        },
+        {
+          "entity_id": "foe_drone",
+          "name": "Sec-Drone",
+          "base_properties": {
+            "agility": 3
+          },
+          "pools": {
+            "condition_track": 10
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_razor",
+          "action_id": "snap_shot",
+          "target_id": "foe_drone",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "foe_drone": {
+            "pool_max_check": {
+              "condition_track": 10
+            }
+          }
+        }
+      }
+    },
+    {
+      "scenario_id": "scenario_edge_boosted_shot",
+      "description": "Runner spends 1 Edge to add +3 bonus dice to the firearms pool test.",
+      "scene_id": "neon_roof",
+      "scene_seed": "pool-edge-seed-5",
+      "flow_start_mode": "round_initiative",
+      "entities": [
+        {
+          "entity_id": "pc_razor",
+          "name": "Razor",
+          "base_properties": {
+            "agility": 5,
+            "firearms": 5
+          },
+          "pools": {
+            "edge": 2,
+            "condition_track": 10
+          }
+        },
+        {
+          "entity_id": "foe_turret",
+          "name": "Ceiling Turret",
+          "base_properties": {
+            "agility": 2
+          },
+          "pools": {
+            "condition_track": 10
+          }
+        }
+      ],
+      "steps": [
+        {
+          "kind": "action",
+          "actor_id": "pc_razor",
+          "action_id": "edge_burst_shot",
+          "target_id": "foe_turret",
+          "expect_status": "executed"
+        }
+      ],
+      "assertions": {
+        "entities": {
+          "pc_razor": {
+            "pools": {
+              "edge": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}
