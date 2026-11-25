@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ruleset_vm.ast_evaluator import evaluate_formula
-from app.ruleset_vm.vm import EntityState
+
+if TYPE_CHECKING:
+    from app.ruleset_vm.vm import EntityState
 
 CapacityMode = Literal["weight", "slots", "grid_2d", "abstract_load", "unlimited"]
 LayeringMode = Literal["abstract_slots", "anatomical_layered"]
+ProvenanceState = Literal["legitimate", "stolen", "planted", "contraband"]
+SlotAccessibility = Literal["open", "pouched", "worn_secure", "concealed"]
 
 DEFAULT_WEARABLE_LAYERS: tuple[str, ...] = (
     "base_undergarment",
@@ -129,6 +133,11 @@ class ItemNode(BaseModel):
     granted_actions: tuple[str, ...] = ()
     tags: tuple[str, ...] = ()
     concealable: bool = False
+    owner_entity_id: str | None = None
+    origin_jurisdiction_id: str | None = None
+    stolen_from_entity_id: str | None = None
+    provenance_state: ProvenanceState = "legitimate"
+    slot_accessibility: SlotAccessibility = "pouched"
 
 
 class OutfitPreset(BaseModel):
@@ -724,3 +733,146 @@ def sync_inventory_auras_to_entity(
             "granted_actions": granted,
         }
     )
+
+
+def item_eval_context(item: ItemNode) -> dict[str, object]:
+    """Convert ItemNode provenance and accessibility attributes into an AST eval context."""
+    return {
+        "item_id": item.item_id,
+        "name": item.name,
+        "slot_accessibility": item.slot_accessibility,
+        "concealable": item.concealable,
+        "provenance_state": item.provenance_state,
+        "owner_entity_id": item.owner_entity_id,
+        "origin_jurisdiction_id": item.origin_jurisdiction_id,
+        "stolen_from_entity_id": item.stolen_from_entity_id,
+        "tags": list(item.tags),
+        "unit_weight": item.unit_weight,
+    }
+
+
+def _apply_provenance_to_item(
+    item: ItemNode,
+    *,
+    provenance_state: ProvenanceState,
+    owner_entity_id: str | None = None,
+    origin_jurisdiction_id: str | None = None,
+    stolen_from_entity_id: str | None = None,
+    tag_to_add: str | None = None,
+    tags_to_remove: tuple[str, ...] = (),
+) -> ItemNode:
+    tag_set = set(item.tags)
+    for rem in tags_to_remove:
+        tag_set.discard(rem)
+    if tag_to_add:
+        tag_set.add(tag_to_add)
+
+    next_stolen_from = (
+        stolen_from_entity_id
+        if stolen_from_entity_id is not None
+        else (None if provenance_state == "legitimate" else item.stolen_from_entity_id)
+    )
+    next_owner = (
+        owner_entity_id
+        if owner_entity_id is not None
+        else (item.owner_entity_id or next_stolen_from)
+    )
+    next_jurisdiction = (
+        origin_jurisdiction_id
+        if origin_jurisdiction_id is not None
+        else item.origin_jurisdiction_id
+    )
+    return item.model_copy(
+        update={
+            "provenance_state": provenance_state,
+            "owner_entity_id": next_owner,
+            "origin_jurisdiction_id": next_jurisdiction,
+            "stolen_from_entity_id": next_stolen_from,
+            "tags": tuple(sorted(tag_set)),
+        }
+    )
+
+
+def set_item_provenance(
+    graph: InventoryGraphState,
+    item_id: str,
+    *,
+    provenance_state: ProvenanceState,
+    owner_entity_id: str | None = None,
+    origin_jurisdiction_id: str | None = None,
+    stolen_from_entity_id: str | None = None,
+    tag_to_add: str | None = None,
+    tags_to_remove: tuple[str, ...] = (),
+) -> InventoryGraphState:
+    """Update ownership, jurisdiction, and provenance state/tags on a single ItemNode."""
+    if item_id not in graph.items:
+        raise KeyError(f"Unknown item_id '{item_id}'.")
+    updated_item = _apply_provenance_to_item(
+        graph.items[item_id],
+        provenance_state=provenance_state,
+        owner_entity_id=owner_entity_id,
+        origin_jurisdiction_id=origin_jurisdiction_id,
+        stolen_from_entity_id=stolen_from_entity_id,
+        tag_to_add=tag_to_add,
+        tags_to_remove=tags_to_remove,
+    )
+    new_items = dict(graph.items)
+    new_items[item_id] = updated_item
+    return graph.model_copy(update={"items": new_items})
+
+
+def transfer_item_between_graphs(
+    source_graph: InventoryGraphState,
+    target_graph: InventoryGraphState,
+    item_id: str,
+    *,
+    target_container_id: str | None = None,
+    provenance_state: ProvenanceState | None = None,
+    stolen_from_entity_id: str | None = None,
+    origin_jurisdiction_id: str | None = None,
+    provenance_tag: str | None = None,
+    target_owner_ctx: Mapping[str, object] | None = None,
+) -> tuple[InventoryGraphState, InventoryGraphState, ItemNode]:
+    """Atomically move an item (or nested container subtree) between two inventories."""
+    if item_id not in source_graph.items:
+        raise KeyError(f"Unknown item_id '{item_id}' in source inventory.")
+    if item_id in target_graph.items:
+        raise ValueError(f"Duplicate item_id '{item_id}' in target inventory.")
+
+    # Collect item subtree in breadth-first order before removing from source_graph
+    subtree_ids: list[str] = [item_id]
+    queue: list[str] = [item_id]
+    while queue:
+        cur_id = queue.pop(0)
+        for child in sorted(_children_of(source_graph, cur_id), key=lambda node: node.item_id):
+            subtree_ids.append(child.item_id)
+            queue.append(child.item_id)
+
+    parent_links: dict[str, str | None] = {
+        nid: target_container_id if nid == item_id else source_graph.parent_container.get(nid)
+        for nid in subtree_ids
+    }
+    captured_items: list[ItemNode] = []
+    for nid in subtree_ids:
+        raw_item = source_graph.items[nid]
+        if provenance_state is not None:
+            raw_item = _apply_provenance_to_item(
+                raw_item,
+                provenance_state=provenance_state,
+                stolen_from_entity_id=stolen_from_entity_id,
+                origin_jurisdiction_id=origin_jurisdiction_id,
+                tag_to_add=provenance_tag,
+            )
+        captured_items.append(raw_item)
+
+    next_source = remove_item(source_graph, item_id, cascade=True)
+    next_target = target_graph
+    for idx, node in enumerate(captured_items):
+        dest_container = target_container_id if idx == 0 else parent_links[node.item_id]
+        next_target = add_item(
+            next_target,
+            node,
+            container_id=dest_container,
+            owner_ctx=target_owner_ctx,
+        )
+    return next_source, next_target, captured_items[0]

@@ -184,6 +184,47 @@
       "title": "ConditionBlock",
       "type": "object"
     },
+    "CovertOpsConfigBlock": {
+      "additionalProperties": false,
+      "description": "Granular 3-pillar covert bindings interpreting ruleset mechanics (ADR-0134).",
+      "properties": {
+        "disguise": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DisguisePillarConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stealth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StealthPillarConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "theft": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TheftPillarConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "CovertOpsConfigBlock",
+      "type": "object"
+    },
     "DeckSpec": {
       "additionalProperties": false,
       "description": "Named card deck specification supporting multiple gameplay scopes.",
@@ -232,6 +273,43 @@
       "title": "DeckSpec",
       "type": "object"
     },
+    "DisguisePillarConfig": {
+      "additionalProperties": false,
+      "description": "Ruleset bindings for masked personas, disguise quality & scrutiny checks.",
+      "properties": {
+        "disguise_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Disguise Action Ids",
+          "type": "array"
+        },
+        "disguised_condition_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Disguised Condition Ids",
+          "type": "array"
+        },
+        "requires_voice_modulation_for_speech": {
+          "default": false,
+          "title": "Requires Voice Modulation For Speech",
+          "type": "boolean"
+        },
+        "scrutiny_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Scrutiny Action Ids",
+          "type": "array"
+        }
+      },
+      "title": "DisguisePillarConfig",
+      "type": "object"
+    },
     "EffectSpec": {
       "additionalProperties": false,
       "description": "Deterministic state mutation emitted by actions, tiers, or ECA event hooks.",
@@ -268,7 +346,12 @@
             "advance_clock",
             "emit_message",
             "shift_form",
-            "revert_form"
+            "revert_form",
+            "set_awareness",
+            "apply_disguise",
+            "reveal_disguise",
+            "transfer_item",
+            "mark_provenance"
           ],
           "title": "Kind",
           "type": "string"
@@ -1113,6 +1196,134 @@
       ],
       "title": "ResourcePoolBlock",
       "type": "object"
+    },
+    "StealthPillarConfig": {
+      "additionalProperties": false,
+      "description": "Ruleset bindings for per-observer stealth awareness without overriding conditions.",
+      "properties": {
+        "awareness_levels": {
+          "default": [
+            "unaware",
+            "suspected",
+            "searching",
+            "detected"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Awareness Levels",
+          "type": "array"
+        },
+        "detected_level": {
+          "default": "detected",
+          "title": "Detected Level",
+          "type": "string"
+        },
+        "detection_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Detection Action Ids",
+          "type": "array"
+        },
+        "hidden_condition_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Hidden Condition Ids",
+          "type": "array"
+        },
+        "hide_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Hide Action Ids",
+          "type": "array"
+        },
+        "noisy_action_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Noisy Action Tags",
+          "type": "array"
+        },
+        "sync_hidden_condition_on_detect": {
+          "default": false,
+          "title": "Sync Hidden Condition On Detect",
+          "type": "boolean"
+        },
+        "unaware_level": {
+          "default": "unaware",
+          "title": "Unaware Level",
+          "type": "string"
+        }
+      },
+      "title": "StealthPillarConfig",
+      "type": "object"
+    },
+    "TheftPillarConfig": {
+      "additionalProperties": false,
+      "description": "Ruleset bindings for item theft, evidence planting, lockpicking & delayed notice.",
+      "properties": {
+        "contraband_tag": {
+          "default": "contraband",
+          "title": "Contraband Tag",
+          "type": "string"
+        },
+        "default_notice_delay_turns": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Notice Delay Turns"
+        },
+        "lockpick_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Lockpick Action Ids",
+          "type": "array"
+        },
+        "plant_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Plant Action Ids",
+          "type": "array"
+        },
+        "planted_tag": {
+          "default": "planted",
+          "title": "Planted Tag",
+          "type": "string"
+        },
+        "steal_action_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Steal Action Ids",
+          "type": "array"
+        },
+        "stolen_tag": {
+          "default": "stolen",
+          "title": "Stolen Tag",
+          "type": "string"
+        }
+      },
+      "title": "TheftPillarConfig",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1131,6 +1342,17 @@
       },
       "title": "Conditions",
       "type": "object"
+    },
+    "covert_ops": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CovertOpsConfigBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "decks": {
       "additionalProperties": {

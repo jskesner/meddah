@@ -194,6 +194,30 @@
           "title": "Name",
           "type": "string"
         },
+        "origin_jurisdiction_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Origin Jurisdiction Id"
+        },
+        "owner_entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Entity Id"
+        },
         "passive_aura_modifiers": {
           "additionalProperties": {
             "anyOf": [
@@ -208,17 +232,51 @@
           "title": "Passive Aura Modifiers",
           "type": "object"
         },
+        "provenance_state": {
+          "default": "legitimate",
+          "enum": [
+            "legitimate",
+            "stolen",
+            "planted",
+            "contraband"
+          ],
+          "title": "Provenance State",
+          "type": "string"
+        },
         "quantity": {
           "default": 1,
           "minimum": 1,
           "title": "Quantity",
           "type": "integer"
         },
+        "slot_accessibility": {
+          "default": "pouched",
+          "enum": [
+            "open",
+            "pouched",
+            "worn_secure",
+            "concealed"
+          ],
+          "title": "Slot Accessibility",
+          "type": "string"
+        },
         "slot_size": {
           "default": 1,
           "minimum": 0,
           "title": "Slot Size",
           "type": "integer"
+        },
+        "stolen_from_entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stolen From Entity Id"
         },
         "tags": {
           "default": [],

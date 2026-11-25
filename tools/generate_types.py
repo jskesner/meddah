@@ -22,6 +22,7 @@ from app.mud_parser import (  # noqa: E402
 )
 from app.ruleset_vm import (  # noqa: E402
     AdvancementGraphSpec,
+    CovertOpsConfigBlock,
     FormBlock,
     InventoryGraphState,
     PackageManifest,
@@ -32,6 +33,7 @@ from app.ruleset_vm import (  # noqa: E402
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "advancement": AdvancementGraphSpec,
     "comms_medium": CommunicationMediumBlock,
+    "covert_ops": CovertOpsConfigBlock,
     "custom_command": CustomMudCommandBlock,
     "custom_emote": CustomEmoteBlock,
     "event": VmEvent,
