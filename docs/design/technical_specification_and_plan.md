@@ -1,8 +1,8 @@
 # Meddah: The Universal Story Engine — Master Technical Specification Index & 14-Phase Implementation Plan
 
 > [!IMPORTANT]
-> **All 50 Architectural Decisions, 29 Subsystem Specifications (+ §1.0 Module Registry) & 77 Grill-Me Resolutions Locked — Ready for Explicit Approval to Begin Development**
-> To keep our technical documentation clean, modular, and easy to navigate, the deep-dive subsystem specifications (§1.0–§1.29) are organized into **5 Domain Technical Specification Volumes** linked below, while this Master Document houses the **§1.0 Module Registry Architecture**, the **Complete 29-Subsystem Directory**, the **Rebalanced Contiguous 14-Phase Implementation Plan (All MVP Phases 1–6 + 2.5 First, Post-MVP Phases 7–14 Second)**, and all **77 Grill-Me Resolutions**. No code or assets have been written yet.
+> **All 50 Architectural Decisions, 29 Subsystem Specifications (+ §1.0 Module Registry) & 77 Design Resolutions Locked — Ready for Explicit Approval to Begin Development**
+> To keep our technical documentation clean, modular, and easy to navigate, the deep-dive subsystem specifications (§1.0–§1.29) are organized into **5 Domain Technical Specification Volumes** linked below, while this Master Document houses the **§1.0 Module Registry Architecture**, the **Complete 29-Subsystem Directory**, the **Rebalanced Contiguous 14-Phase Implementation Plan (All MVP Phases 1–6 + 2.5 First, Post-MVP Phases 7–14 Second)**, and all **77 Design Resolutions**. No code or assets have been written yet.
 
 ---
 
@@ -296,7 +296,7 @@ To ensure system integrity and prevent architectural drift, **every phase** must
 
 ---
 
-## 2.1 Grill-Me Resolutions (Scope, Baselines & Early Playability)
+## 2.1 Design Resolutions (Scope, Baselines & Early Playability)
 
 1. **Early Thin Vertical Slice ("Phase 2.5" — Terminal CLI MUD & Headless Server Daemon)**: After Phases 1–2, build the interactive **Terminal CLI MUD Client (`meddah attach`)** and **Headless Server CLI (`meddah serve`)** so the 3 showcase rulesets, ingestion, and (later) the AI GM can be played, tested, and hosted from the terminal well before Phase 6. There is **no** separate "text-only browser" client—the single **Unified Browser Web Client** (which serves Spectators, Players, Co-GMs, and Headless Server Admins from one shared React web bundle) and the Electron Desktop App are built in Phase 6 [MVP] (with post-MVP studios and audiovisual spectacle in Phase 13).
 2. **LLM Baseline**: Minimum supported tier is a mid-range local model (7–14B via Ollama, ~8–16GB VRAM). All deterministic paths must work with zero LLM calls; prompts and the 4k–8k budget are tuned for that tier; cloud models are an upgrade.
@@ -530,9 +530,9 @@ To ensure system integrity and prevent architectural drift, **every phase** must
 
 ## 3. Request for Explicit Permission to Begin Development
 
-All **50 Architectural Decisions**, **29 Subsystem Specifications (plus the §1.0 Module Registry)**, and **77 Grill-Me Resolutions** are now completely mapped out, audited against all **4 Golden Rules**, and structured into a **contiguous 14-Phase Implementation Plan + Phase 2.5 Slice (All MVP Phases 1–6 + 2.5 First, Balanced Post-MVP Phases 7–14 Second)** across our modular design artifact suite:
+All **50 Architectural Decisions**, **29 Subsystem Specifications (plus the §1.0 Module Registry)**, and **77 Design Resolutions** are now completely mapped out, audited against all **4 Golden Rules**, and structured into a **contiguous 14-Phase Implementation Plan + Phase 2.5 Slice (All MVP Phases 1–6 + 2.5 First, Balanced Post-MVP Phases 7–14 Second)** across our modular design artifact suite:
 - [system_design_specification.md](./system_design_specification.md) — Executive Summary, 4 Golden Rules, 50 Locked Architectural Decisions & High-Level Architecture
-- [technical_specification_and_plan.md](./technical_specification_and_plan.md) — Master Technical Index, §1.0 Module Registry, Contiguous 14-Phase Implementation Plan & 77 Grill-Me Resolutions
+- [technical_specification_and_plan.md](./technical_specification_and_plan.md) — Master Technical Index, §1.0 Module Registry, Contiguous 14-Phase Implementation Plan & 77 Design Resolutions
 - [tech_spec_01_core_vm_and_ingestion.md](./tech_spec_01_core_vm_and_ingestion.md) — Volume 1: Core Ruleset VM, Universal Layered Inventory & Ruleset Ingestion (§1.0–§1.2)
 - [tech_spec_02_agents_companions_and_quests.md](./tech_spec_02_agents_companions_and_quests.md) — Volume 2: AI/Deterministic GM Director (RAW Default), Autonomous Companions, Quests & Retinue (§1.3–§1.4, §1.12, §1.19)
 - [tech_spec_03_world_cosmology_and_society.md](./tech_spec_03_world_cosmology_and_society.md) — Volume 3: Living World, Cosmology, Overworld Travel, Law/Capture, Megacities, Geopolitics & Events (§1.5, §1.11, §1.20–§1.24)

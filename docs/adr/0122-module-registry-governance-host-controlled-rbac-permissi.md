@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #72 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #72 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Module Registry Governance — Host-Controlled RBAC Permissions, Isolated Sandbox Test Instances & Safe-Boundary Activation (`module_registry.py` — Phase 1 & Phase 6 [MVP], §1.0)**.

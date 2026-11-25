@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #24 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #24 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Hardware Capability Tiers (Unified 3-Tier Model)**.

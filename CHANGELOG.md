@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Universal Character Transformations & Alternate Forms (`backend/app/ruleset_vm/forms.py`, [ADR-0133](./docs/adr/0133-universal-character-transformations-and-alternate-forms.md))**: Added `FormBlock` and `FormPoolSpec` schemas (`schemas/form.schema.json`), runtime `ActiveFormState` and `FORM_CHANGED` replay transitions (`shift_into_form`, `revert_form`, `tick_active_form`), 3 property transformation modes (`replace_all`, `replace_subset`, `delta_overlay`), per-pool spillover/auto-revert policies, and gear/aura suppression controls.
+- **Condition & Tag Overrides in `SHEET_OVERRIDE`**: Extended `apply_sheet_override()` with audited `add_conditions`, `remove_conditions`, `add_tags`, and `remove_tags` support plus explicit CLI/Multiplayer/GUI roadmap tracking across `P2.5`, `P5`, and `P6`.
+
+### Changed
+- Standardized "Design Resolutions" terminology across design specifications, `README.md`, and ADRs (`0051`–`0127`), and synced baseline resolution counts (`77`).
+
 ## [0.1.0] - 2026-11-23
 
 ### Added

@@ -201,6 +201,54 @@ class FlowConfig(BaseModel):
     turn_pool_resets: tuple[str, ...] = ()
 
 
+FormPropertyMode = Literal["replace_all", "replace_subset", "delta_overlay"]
+FormPoolMode = Literal["separate_form_pool", "shared_base_pool", "temp_bonus_pool"]
+GearHandlingMode = Literal["merge_into_form", "keep_worn", "drop_to_room"]
+
+
+def _empty_form_pool_dict() -> dict[str, FormPoolSpec]:
+    return {}
+
+
+class FormPoolSpec(BaseModel):
+    """Per-pool policy governing how a ResourcePool behaves while transformed into a form."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    mode: FormPoolMode = "separate_form_pool"
+    initial_formula: str = "0"
+    max_formula: str | None = None
+    overflow_to_base: bool = True
+    auto_revert_on_zero: bool = True
+
+
+class FormBlock(BaseModel):
+    """Declarative alternate form, transformation, chassis, or shape-shift stat block."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    form_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    description: str = ""
+    requires: str = "true"
+    pool_costs: dict[str, str] = Field(default_factory=dict)
+    property_mode: FormPropertyMode = "replace_subset"
+    property_values: dict[str, ScalarValue] = Field(default_factory=dict)
+    property_deltas: dict[str, str] = Field(default_factory=dict)
+    pool_policies: dict[str, FormPoolSpec] = Field(default_factory=_empty_form_pool_dict)
+    action_mode: Literal["merge", "replace"] = "merge"
+    granted_actions: tuple[str, ...] = ()
+    blocked_tags: tuple[str, ...] = ()
+    granted_tags: tuple[str, ...] = ()
+    gear_handling: GearHandlingMode = "merge_into_form"
+    suppress_gear_auras: bool = True
+    default_duration_turns: int | None = Field(default=None, ge=1)
+    size_category: str | None = None
+    anatomy_topology_override: str | None = None
+    portrait_override_ref: str | None = None
+    token_override_ref: str | None = None
+
+
 class RulesetSchema(BaseModel):
     """Top-level declarative schema compiled from .rpgrules or authoring studios."""
 
@@ -215,6 +263,7 @@ class RulesetSchema(BaseModel):
     actions: dict[str, ActionBlock] = Field(default_factory=dict)
     event_hooks: dict[str, EventHookBlock] = Field(default_factory=dict)
     decks: dict[str, DeckSpec] = Field(default_factory=dict)
+    forms: dict[str, FormBlock] = Field(default_factory=dict)
     flow_config: FlowConfig = Field(default_factory=FlowConfig)
 
     def content_hash(self) -> str:
@@ -351,6 +400,40 @@ class RulesetSchema(BaseModel):
                 errors.append(f"EventHook '{hook_id}' condition: {exc.message}")
             for eff in hook.effects:
                 self._validate_effect(eff, f"EventHook '{hook_id}'", errors)
+
+        for form_id, form in sorted(self.forms.items()):
+            try:
+                parse_formula(form.requires)
+            except FormulaError as exc:
+                errors.append(f"Form '{form_id}' requires: {exc.message}")
+            for pool_key, cost_expr in sorted(form.pool_costs.items()):
+                if pool_key not in self.resource_pools:
+                    errors.append(
+                        f"Form '{form_id}' pool cost references unknown pool '{pool_key}'"
+                    )
+                try:
+                    parse_formula(cost_expr)
+                except FormulaError as exc:
+                    errors.append(f"Form '{form_id}' cost '{pool_key}': {exc.message}")
+            for prop_key, delta_expr in sorted(form.property_deltas.items()):
+                try:
+                    parse_formula(delta_expr)
+                except FormulaError as exc:
+                    errors.append(f"Form '{form_id}' property delta '{prop_key}': {exc.message}")
+            for pool_key, policy in sorted(form.pool_policies.items()):
+                try:
+                    parse_formula(policy.initial_formula)
+                except FormulaError as exc:
+                    errors.append(
+                        f"Form '{form_id}' pool '{pool_key}' initial_formula: {exc.message}"
+                    )
+                if policy.max_formula is not None:
+                    try:
+                        parse_formula(policy.max_formula)
+                    except FormulaError as exc:
+                        errors.append(
+                            f"Form '{form_id}' pool '{pool_key}' max_formula: {exc.message}"
+                        )
 
         return errors
 

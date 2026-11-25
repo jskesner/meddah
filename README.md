@@ -21,7 +21,7 @@
 
 - **[`ROADMAP.md`](./ROADMAP.md)** — Authoritative milestone tracker (`Phases 1–6 + 2.5 [MVP]` contiguous first, `Phases 7–14 [Post-MVP]` modular expansions; staying on `v0.x.0` until all 14 planned phases complete, then tagging `v1.0.0`).
 - **[`docs/design/system_design_specification.md`](./docs/design/system_design_specification.md)** — Executive Summary, 4 Golden Rules, and all 50 Locked Architectural Decisions.
-- **[`docs/design/technical_specification_and_plan.md`](./docs/design/technical_specification_and_plan.md)** — Master Technical Index, §1.0 Module Registry, 14-Phase Implementation Plan, and 77 Grill-Me Resolutions.
+- **[`docs/design/technical_specification_and_plan.md`](./docs/design/technical_specification_and_plan.md)** — Master Technical Index, §1.0 Module Registry, 14-Phase Implementation Plan, and 77 Design Resolutions.
 - **[`docs/design/development_workflow_and_repository_standards.md`](./docs/design/development_workflow_and_repository_standards.md)** — Monorepo layout, layer boundaries (`import-linter`), CI gates, agnosticism/modularity linters, and ADR governance.
 - **[`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md)** — Contributor workflow, commit format, and testing requirements.
 

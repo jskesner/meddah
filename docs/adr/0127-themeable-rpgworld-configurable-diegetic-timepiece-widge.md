@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #77 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #77 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Themeable & `.rpgworld`-Configurable Diegetic Timepiece Widget & Time-of-Day Color-Shifting (`TimepieceWidget.tsx` & `TimeOfDayColorLUT` — Phase 6 [MVP], [Vol 3, §1.5 item 6A](./tech_spec_03_world_cosmology_and_society.md) & [Vol 4, §1.8 item 2](./tech_spec_04_multiplayer_ui_and_vtt.md))**.

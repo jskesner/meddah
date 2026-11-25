@@ -22,6 +22,7 @@ from app.mud_parser import (  # noqa: E402
 )
 from app.ruleset_vm import (  # noqa: E402
     AdvancementGraphSpec,
+    FormBlock,
     InventoryGraphState,
     PackageManifest,
     RulesetSchema,
@@ -34,6 +35,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "custom_command": CustomMudCommandBlock,
     "custom_emote": CustomEmoteBlock,
     "event": VmEvent,
+    "form": FormBlock,
     "inventory": InventoryGraphState,
     "language": LanguageBlock,
     "manifest": PackageManifest,

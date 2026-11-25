@@ -10,7 +10,13 @@ from typing import Literal, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.ruleset_vm.ast_evaluator import FormulaError, ScalarValue, evaluate_formula
-from app.ruleset_vm.blocks import EffectSpec, OutcomeTier, RulesetSchema
+from app.ruleset_vm.blocks import (
+    EffectSpec,
+    FormPoolSpec,
+    GearHandlingMode,
+    OutcomeTier,
+    RulesetSchema,
+)
 from app.ruleset_vm.flow_controller import FlowState, create_initial_flow
 from app.ruleset_vm.randomizers import DeckRuntimeState, RollResult, resolve_randomizer
 from app.ruleset_vm.reaction_window import (
@@ -31,6 +37,19 @@ class ActiveCondition(BaseModel):
     remaining_turns: int | None = None
 
 
+class ActiveFormState(BaseModel):
+    """Runtime state for an active alternate form or character transformation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    form_id: str = Field(min_length=1)
+    remaining_turns: int | None = Field(default=None, ge=1)
+    form_pools: dict[str, int] = Field(default_factory=dict)
+    form_pool_maxes: dict[str, int] = Field(default_factory=dict)
+    gear_handling: GearHandlingMode = "merge_into_form"
+    previous_form_id: str | None = None
+
+
 class EntityState(BaseModel):
     """Authoritative event-sourced state of a single character, creature, or object."""
 
@@ -44,10 +63,12 @@ class EntityState(BaseModel):
     tags: tuple[str, ...] = ()
     aura_modifiers: dict[str, int | float] = Field(default_factory=dict)
     granted_actions: tuple[str, ...] = ()
+    available_forms: tuple[str, ...] = ()
+    active_form: ActiveFormState | None = None
 
 
 class ComputedEntityView(BaseModel):
-    """Derived runtime view of an entity after topological formulas, conditions & auras."""
+    """Derived runtime view of an entity after forms, formulas, conditions & auras."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -59,6 +80,8 @@ class ComputedEntityView(BaseModel):
     conditions: tuple[str, ...]
     tags: tuple[str, ...]
     blocked_tags: tuple[str, ...]
+    active_form_id: str | None = None
+    granted_actions: tuple[str, ...] = ()
 
     def to_eval_context(self) -> dict[str, object]:
         """Convert entity view into AST formula evaluation dict."""
@@ -70,6 +93,8 @@ class ComputedEntityView(BaseModel):
             "conditions": list(self.conditions),
             "tags": list(self.tags),
             "blocked_tags": list(self.blocked_tags),
+            "active_form_id": self.active_form_id,
+            "granted_actions": list(self.granted_actions),
         }
         for prop_key, prop_val in self.properties.items():
             ctx[prop_key] = prop_val
@@ -91,6 +116,7 @@ VmEventType = Literal[
     "DECK_UPDATED",
     "RNG_ADVANCED",
     "CHARACTER_ADVANCED",
+    "FORM_CHANGED",
     "SHEET_OVERRIDE",
     "MODULE_OVERRIDE",
     "MESSAGE_EMITTED",
@@ -151,12 +177,22 @@ def _clamp_number(
 
 
 def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> ComputedEntityView:
-    """Compute topological derived properties, condition modifiers, and pool bounds."""
+    """Compute active forms, topological derived properties, condition modifiers, and auras."""
+    active_form = entity.active_form
+    form_def = ruleset.forms.get(active_form.form_id) if active_form is not None else None
+
     props: dict[str, ScalarValue] = {
         pid: prop.default_value for pid, prop in ruleset.properties.items()
     }
-    for k, v in entity.base_properties.items():
-        props[k] = v
+    if form_def is not None and form_def.property_mode == "replace_all":
+        for k, v in form_def.property_values.items():
+            props[k] = v
+    else:
+        for k, v in entity.base_properties.items():
+            props[k] = v
+        if form_def is not None and form_def.property_mode == "replace_subset":
+            for k, v in form_def.property_values.items():
+                props[k] = v
 
     cond_ids = tuple(sorted(entity.conditions))
     blocked_tags: set[str] = set()
@@ -165,19 +201,57 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
         if c_def is not None:
             blocked_tags.update(c_def.blocks_tags)
 
+    merged_tags_set = set(entity.tags)
+    eff_actions = entity.granted_actions
+    eff_pools = dict(entity.pools)
+
+    if form_def is not None and active_form is not None:
+        merged_tags_set.update(form_def.granted_tags)
+        blocked_tags.update(form_def.blocked_tags)
+        if form_def.action_mode == "replace":
+            eff_actions = tuple(sorted(set(form_def.granted_actions)))
+        else:
+            eff_actions = tuple(sorted(set(entity.granted_actions) | set(form_def.granted_actions)))
+        for pool_id, policy in sorted(form_def.pool_policies.items()):
+            if policy.mode == "separate_form_pool":
+                eff_pools[pool_id] = active_form.form_pools.get(pool_id, 0)
+            elif policy.mode == "temp_bonus_pool":
+                eff_pools[pool_id] = entity.pools.get(pool_id, 0) + active_form.form_pools.get(
+                    pool_id, 0
+                )
+
+    merged_tags = tuple(sorted(merged_tags_set))
+    effective_form_id = (
+        active_form.form_id if (form_def is not None and active_form is not None) else None
+    )
+
     def _build_ctx(cur_props: dict[str, ScalarValue]) -> dict[str, object]:
         ctx: dict[str, object] = {
             "entity_id": entity.entity_id,
             "name": entity.name,
-            "pools": dict(entity.pools),
+            "pools": dict(eff_pools),
             "conditions": list(cond_ids),
-            "tags": list(entity.tags),
+            "tags": list(merged_tags),
+            "active_form_id": effective_form_id,
         }
         ctx.update(cur_props)
-        for pool_k, pool_v in entity.pools.items():
+        for pool_k, pool_v in eff_pools.items():
             if pool_k not in ctx:
                 ctx[pool_k] = pool_v
         return ctx
+
+    # Pre-Pass 1: apply form deltas targeting non-derived properties so derived stats reflect them
+    if form_def is not None and form_def.property_deltas:
+        pre_ctx = {"@self": _build_ctx(props)}
+        for target_prop, delta_expr in sorted(form_def.property_deltas.items()):
+            target_def = ruleset.properties.get(target_prop)
+            if target_def is not None and target_def.formula is not None:
+                continue
+            delta_val = evaluate_formula(delta_expr, pre_ctx)
+            if isinstance(delta_val, (int, float)) and not isinstance(delta_val, bool):
+                existing = props.get(target_prop, 0)
+                if isinstance(existing, (int, float)) and not isinstance(existing, bool):
+                    props[target_prop] = existing + delta_val
 
     # Pass 1: derive properties in topological order
     for pid in ruleset.topological_property_order():
@@ -190,7 +264,7 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
         elif isinstance(raw_val, (bool, str)) or raw_val is None:
             props[pid] = raw_val
 
-    # Pass 2: apply active condition property_modifiers and passive aura_modifiers
+    # Pass 2: apply active condition modifiers, derived form deltas, and non-suppressed gear auras
     delta_ctx = {"@self": _build_ctx(props)}
     for cid in cond_ids:
         c_def = ruleset.conditions.get(cid)
@@ -203,10 +277,22 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
                 if isinstance(existing, (int, float)) and not isinstance(existing, bool):
                     props[target_prop] = existing + delta_val
 
-    for target_prop, aura_delta in sorted(entity.aura_modifiers.items()):
-        existing = props.get(target_prop, 0)
-        if isinstance(existing, (int, float)) and not isinstance(existing, bool):
-            props[target_prop] = existing + aura_delta
+    if form_def is not None:
+        for target_prop, delta_expr in sorted(form_def.property_deltas.items()):
+            target_def = ruleset.properties.get(target_prop)
+            if target_def is None or target_def.formula is None:
+                continue
+            delta_val = evaluate_formula(delta_expr, delta_ctx)
+            if isinstance(delta_val, (int, float)) and not isinstance(delta_val, bool):
+                existing = props.get(target_prop, 0)
+                if isinstance(existing, (int, float)) and not isinstance(existing, bool):
+                    props[target_prop] = existing + delta_val
+
+    if form_def is None or not form_def.suppress_gear_auras:
+        for target_prop, aura_delta in sorted(entity.aura_modifiers.items()):
+            existing = props.get(target_prop, 0)
+            if isinstance(existing, (int, float)) and not isinstance(existing, bool):
+                props[target_prop] = existing + aura_delta
 
     # Enforce min/max caps after modifiers
     for pid, prop_def in ruleset.properties.items():
@@ -226,15 +312,27 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
             else:
                 pool_maxes[pool_id] = None
 
+    if form_def is not None and active_form is not None:
+        for pool_id, policy in sorted(form_def.pool_policies.items()):
+            if policy.mode == "separate_form_pool":
+                if pool_id in active_form.form_pool_maxes:
+                    pool_maxes[pool_id] = active_form.form_pool_maxes[pool_id]
+            elif policy.mode == "temp_bonus_pool":
+                base_max = pool_maxes.get(pool_id)
+                bonus_max = active_form.form_pool_maxes.get(pool_id, 0)
+                pool_maxes[pool_id] = (base_max + bonus_max) if base_max is not None else None
+
     return ComputedEntityView(
         entity_id=entity.entity_id,
         name=entity.name,
         properties=props,
-        pools=dict(entity.pools),
+        pools=eff_pools,
         pool_maxes=pool_maxes,
         conditions=cond_ids,
-        tags=entity.tags,
+        tags=merged_tags,
         blocked_tags=tuple(sorted(blocked_tags)),
+        active_form_id=effective_form_id,
+        granted_actions=eff_actions,
     )
 
 
@@ -305,10 +403,16 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
         pool_id = str(payload["pool_id"])
         new_val = _as_int_value(payload["new_value"], "new_value")
         entity = state.entities[entity_id]
-        updated_pools = dict(entity.pools)
-        updated_pools[pool_id] = new_val
         updated_entities = dict(state.entities)
-        updated_entities[entity_id] = entity.model_copy(update={"pools": updated_pools})
+        if payload.get("pool_target") == "form" and entity.active_form is not None:
+            updated_form_pools = dict(entity.active_form.form_pools)
+            updated_form_pools[pool_id] = new_val
+            next_form = entity.active_form.model_copy(update={"form_pools": updated_form_pools})
+            updated_entities[entity_id] = entity.model_copy(update={"active_form": next_form})
+        else:
+            updated_pools = dict(entity.pools)
+            updated_pools[pool_id] = new_val
+            updated_entities[entity_id] = entity.model_copy(update={"pools": updated_pools})
         return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
 
     if event.event_type == "PROPERTY_SET":
@@ -390,9 +494,39 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
             pool_map = cast(Mapping[object, object], pool_overrides)
             for k, v in pool_map.items():
                 updated_pools[str(k)] = _as_int_value(v, f"pool_override:{k}")
+        updated_conds = dict(entity.conditions)
+        raw_add_conds = payload.get("add_conditions", {})
+        if isinstance(raw_add_conds, Mapping):
+            cond_map = cast(Mapping[object, object], raw_add_conds)
+            for cid_obj, dur_obj in cond_map.items():
+                cid = str(cid_obj)
+                dur = (
+                    int(dur_obj)
+                    if isinstance(dur_obj, int) and not isinstance(dur_obj, bool)
+                    else None
+                )
+                updated_conds[cid] = ActiveCondition(condition_id=cid, remaining_turns=dur)
+        raw_rem_conds = payload.get("remove_conditions", ())
+        if isinstance(raw_rem_conds, Sequence) and not isinstance(raw_rem_conds, str):
+            for cid_obj in cast(Sequence[object], raw_rem_conds):
+                updated_conds.pop(str(cid_obj), None)
+        updated_tags = set(entity.tags)
+        raw_add_tags = payload.get("add_tags", ())
+        if isinstance(raw_add_tags, Sequence) and not isinstance(raw_add_tags, str):
+            for tag_obj in cast(Sequence[object], raw_add_tags):
+                updated_tags.add(str(tag_obj))
+        raw_rem_tags = payload.get("remove_tags", ())
+        if isinstance(raw_rem_tags, Sequence) and not isinstance(raw_rem_tags, str):
+            for tag_obj in cast(Sequence[object], raw_rem_tags):
+                updated_tags.discard(str(tag_obj))
         updated_entities = dict(state.entities)
         updated_entities[entity_id] = entity.model_copy(
-            update={"base_properties": updated_props, "pools": updated_pools}
+            update={
+                "base_properties": updated_props,
+                "pools": updated_pools,
+                "conditions": updated_conds,
+                "tags": tuple(sorted(updated_tags)),
+            }
         )
         return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
 
@@ -461,6 +595,25 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
             }
         )
 
+    if event.event_type == "FORM_CHANGED":
+        entity_id = str(payload["entity_id"])
+        op = str(payload["op"])
+        entity = state.entities[entity_id]
+        updated_entities = dict(state.entities)
+        if op == "shift":
+            next_form = ActiveFormState.model_validate(payload["active_form"])
+            updated_entities[entity_id] = entity.model_copy(update={"active_form": next_form})
+        elif op == "revert":
+            updated_entities[entity_id] = entity.model_copy(update={"active_form": None})
+        elif op == "tick" and entity.active_form is not None:
+            rem_raw = payload.get("remaining_turns")
+            if isinstance(rem_raw, int) and not isinstance(rem_raw, bool) and rem_raw > 0:
+                next_form = entity.active_form.model_copy(update={"remaining_turns": rem_raw})
+                updated_entities[entity_id] = entity.model_copy(update={"active_form": next_form})
+            else:
+                updated_entities[entity_id] = entity.model_copy(update={"active_form": None})
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
     # ACTION_EXECUTED serves as an immutable audit marker in the event stream
     _ = ruleset
     return state.model_copy(update={"event_seq": next_seq})
@@ -480,6 +633,41 @@ def replay_events(
 
 def _next_event_id(state: SceneState, offset: int) -> str:
     return f"evt_{state.scene_id}_{state.event_seq + offset + 1:06d}"
+
+
+def _apply_base_pool_delta(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    *,
+    scope_entity_id: str,
+    pool_id: str,
+    delta: int,
+    actor_id: str,
+    pending_events: list[VmEvent],
+) -> SceneState:
+    ent = state.entities[scope_entity_id]
+    pool_def = ruleset.resource_pools.get(pool_id)
+    min_val = pool_def.min_value if pool_def is not None else 0
+    base_view = compute_entity_view(ruleset, ent.model_copy(update={"active_form": None}))
+    max_val = base_view.pool_maxes.get(pool_id)
+    new_val = ent.pools.get(pool_id, 0) + delta
+    if new_val < min_val:
+        new_val = min_val
+    if max_val is not None and new_val > max_val:
+        new_val = max_val
+    evt = VmEvent(
+        event_id=_next_event_id(state, 0),
+        event_type="POOL_MODIFIED",
+        actor_id=actor_id,
+        payload={
+            "entity_id": scope_entity_id,
+            "pool_id": pool_id,
+            "delta": delta,
+            "new_value": new_val,
+        },
+    )
+    pending_events.append(evt)
+    return apply_event(ruleset, state, evt)
 
 
 def _resolve_effect_events(
@@ -504,28 +692,121 @@ def _resolve_effect_events(
             return state
         delta = _as_int_value(evaluate_formula(effect.formula, eval_ctx), "modify_pool delta")
         ent = state.entities[scope_entity_id]
-        pool_def = ruleset.resource_pools.get(effect.target_key)
-        min_val = pool_def.min_value if pool_def is not None else 0
-        view = compute_entity_view(ruleset, ent)
-        max_val = view.pool_maxes.get(effect.target_key)
-        new_val = ent.pools.get(effect.target_key, 0) + delta
-        if new_val < min_val:
-            new_val = min_val
-        if max_val is not None and new_val > max_val:
-            new_val = max_val
-        evt = VmEvent(
-            event_id=_next_event_id(state, 0),
-            event_type="POOL_MODIFIED",
-            actor_id=actor_id,
-            payload={
-                "entity_id": scope_entity_id,
-                "pool_id": effect.target_key,
-                "delta": delta,
-                "new_value": new_val,
-            },
+        form_def = ruleset.forms.get(ent.active_form.form_id) if ent.active_form else None
+        policy: FormPoolSpec | None = (
+            form_def.pool_policies.get(effect.target_key)
+            if (form_def is not None and ent.active_form is not None)
+            else None
         )
-        pending_events.append(evt)
-        return apply_event(ruleset, state, evt)
+
+        if policy is not None and ent.active_form is not None:
+            if policy.mode == "separate_form_pool":
+                cur_form = ent.active_form.form_pools.get(effect.target_key, 0)
+                form_max = ent.active_form.form_pool_maxes.get(effect.target_key)
+                raw_after = cur_form + delta
+                clamped_form = max(0, raw_after)
+                if form_max is not None and clamped_form > form_max:
+                    clamped_form = form_max
+
+                form_evt = VmEvent(
+                    event_id=_next_event_id(state, 0),
+                    event_type="POOL_MODIFIED",
+                    actor_id=actor_id,
+                    payload={
+                        "entity_id": scope_entity_id,
+                        "pool_id": effect.target_key,
+                        "pool_target": "form",
+                        "delta": delta if raw_after >= 0 else -cur_form,
+                        "new_value": clamped_form,
+                    },
+                )
+                pending_events.append(form_evt)
+                cur_state = apply_event(ruleset, state, form_evt)
+
+                if raw_after <= 0 and delta < 0 and policy.auto_revert_on_zero:
+                    rev_evt = VmEvent(
+                        event_id=_next_event_id(cur_state, 0),
+                        event_type="FORM_CHANGED",
+                        actor_id=actor_id,
+                        payload={
+                            "entity_id": scope_entity_id,
+                            "op": "revert",
+                            "form_id": ent.active_form.form_id,
+                            "reason": "form_pool_depleted",
+                        },
+                    )
+                    pending_events.append(rev_evt)
+                    cur_state = apply_event(ruleset, cur_state, rev_evt)
+
+                if raw_after < 0 and policy.overflow_to_base:
+                    cur_state = _apply_base_pool_delta(
+                        ruleset,
+                        cur_state,
+                        scope_entity_id=scope_entity_id,
+                        pool_id=effect.target_key,
+                        delta=raw_after,
+                        actor_id=actor_id,
+                        pending_events=pending_events,
+                    )
+                return cur_state
+
+            if policy.mode == "temp_bonus_pool" and delta < 0:
+                cur_state = state
+                cur_bonus = ent.active_form.form_pools.get(effect.target_key, 0)
+                rem_delta = delta
+                if cur_bonus > 0:
+                    absorbed = min(cur_bonus, abs(delta))
+                    new_bonus = cur_bonus - absorbed
+                    rem_delta = delta + absorbed
+                    bonus_evt = VmEvent(
+                        event_id=_next_event_id(cur_state, 0),
+                        event_type="POOL_MODIFIED",
+                        actor_id=actor_id,
+                        payload={
+                            "entity_id": scope_entity_id,
+                            "pool_id": effect.target_key,
+                            "pool_target": "form",
+                            "delta": -absorbed,
+                            "new_value": new_bonus,
+                        },
+                    )
+                    pending_events.append(bonus_evt)
+                    cur_state = apply_event(ruleset, cur_state, bonus_evt)
+                    if new_bonus <= 0 and policy.auto_revert_on_zero:
+                        rev_evt = VmEvent(
+                            event_id=_next_event_id(cur_state, 0),
+                            event_type="FORM_CHANGED",
+                            actor_id=actor_id,
+                            payload={
+                                "entity_id": scope_entity_id,
+                                "op": "revert",
+                                "form_id": ent.active_form.form_id,
+                                "reason": "form_pool_depleted",
+                            },
+                        )
+                        pending_events.append(rev_evt)
+                        cur_state = apply_event(ruleset, cur_state, rev_evt)
+                if rem_delta < 0 and policy.overflow_to_base:
+                    cur_state = _apply_base_pool_delta(
+                        ruleset,
+                        cur_state,
+                        scope_entity_id=scope_entity_id,
+                        pool_id=effect.target_key,
+                        delta=rem_delta,
+                        actor_id=actor_id,
+                        pending_events=pending_events,
+                    )
+                return cur_state
+
+        return _apply_base_pool_delta(
+            ruleset,
+            state,
+            scope_entity_id=scope_entity_id,
+            pool_id=effect.target_key,
+            delta=delta,
+            actor_id=actor_id,
+            pending_events=pending_events,
+        )
 
     if effect.kind == "set_property":
         if scope_entity_id is None or scope_entity_id not in state.entities:
@@ -979,12 +1260,26 @@ def apply_sheet_override(
     entity_id: str,
     property_overrides: dict[str, ScalarValue] | None = None,
     pool_overrides: dict[str, int] | None = None,
+    add_conditions: Mapping[str, int | None] | Sequence[str] | None = None,
+    remove_conditions: Sequence[str] | None = None,
+    add_tags: Sequence[str] | None = None,
+    remove_tags: Sequence[str] | None = None,
     actor_seat_id: str,
     reason: str = "",
 ) -> tuple[SceneState, VmEvent]:
     """Commit an audited SHEET_OVERRIDE event for manual roll / direct-edit play modes."""
     if entity_id not in state.entities:
         raise KeyError(f"Unknown entity '{entity_id}'")
+    normalized_add_conds: dict[str, int | None] = {}
+    if isinstance(add_conditions, Mapping):
+        for cid, dur in add_conditions.items():
+            normalized_add_conds[cid] = dur
+    elif add_conditions is not None:
+        for cid in add_conditions:
+            cond_def = ruleset.conditions.get(cid)
+            normalized_add_conds[cid] = (
+                cond_def.default_duration_turns if cond_def is not None else None
+            )
     evt = VmEvent(
         event_id=_next_event_id(state, 0),
         event_type="SHEET_OVERRIDE",
@@ -993,6 +1288,10 @@ def apply_sheet_override(
             "entity_id": entity_id,
             "property_overrides": dict(property_overrides or {}),
             "pool_overrides": dict(pool_overrides or {}),
+            "add_conditions": normalized_add_conds,
+            "remove_conditions": list(remove_conditions or ()),
+            "add_tags": list(add_tags or ()),
+            "remove_tags": list(remove_tags or ()),
             "reason": reason,
         },
     )

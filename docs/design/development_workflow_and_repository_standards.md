@@ -339,10 +339,10 @@ stateDiagram-v2
 ```
 
 ### Initial ADR Seeding Plan
-Upon repository initialization, the **50 Locked Architectural Decisions** and **75 Grill-Me Resolutions** (125 records total) will be automatically seeded into `docs/adr/` using the standard format and a collision-free numbering scheme:
+Upon repository initialization, the **50 Locked Architectural Decisions** and **77 Design Resolutions** (127 seeded decision/resolution records plus Golden Rules `0128`–`0131` = 131 baseline ADRs) will be automatically seeded into `docs/adr/` using the standard format and a collision-free numbering scheme:
 - `0001`–`0050`: One ADR per Architectural Decision, numbered to match the Decision # in `system_design_specification.md` (e.g. `0001-hybrid-mud-vtt-canvas.md`, `0002-zero-assumption-ruleset-vm.md`, ... `0050-granular-hit-locations-and-medical-engine.md`).
-- `0051`–`0125`: One ADR per Grill-Me Resolution, numbered `0050 + N` for Resolution N (e.g. Resolution 1 → `0051-...`, Resolution 75 → `0125-polite-multi-page-url-ingestion.md`).
-- Golden Rules #1–#4 are recorded as ADRs `0002`, plus `0126-golden-rule-deterministic-zero-ai.md`, `0127-golden-rule-tier-b-reference-target.md`, and `0128-golden-rule-modular-opt-in-dormant.md`.
+- `0051`–`0127`: One ADR per Design Resolution, numbered `0050 + N` for Resolution N (e.g. Resolution 1 → `0051-...`, Resolution 77 → `0127-themeable-rpgworld-configurable-diegetic-timepiece-widge.md`).
+- Golden Rules #1–#4 are recorded as ADRs `0128`–`0131` (`0128-golden-rule-zero-assumption-agnosticism.md`, `0129-golden-rule-100-deterministic-zero-ai-usability-directive-runtime-au.md`, `0130-golden-rule-tier-b-reference-target-zero-stall-execution.md`, and `0131-golden-rule-modular-opt-in-dormant-unless-specified.md`).
 
 ### Standard ADR Template
 Every file in `docs/adr/NNNN-title.md` follows this exact Markdown structure:
