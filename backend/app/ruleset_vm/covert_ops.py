@@ -16,14 +16,21 @@ from app.ruleset_vm.blocks import (
 )
 from app.ruleset_vm.inventory_graph import ProvenanceState, compute_visible_appearance
 from app.ruleset_vm.module_registry import MeddahModuleManifest, ModuleProvides
+from app.ruleset_vm.time_skip import propose_time_skip as open_time_skip_proposal
+from app.ruleset_vm.time_skip import start_timed_activity
 from app.ruleset_vm.vm import (
     ActiveDisguiseState,
+    ActiveTimedActivity,
+    DisguisePreset,
     DisguiseSource,
     PendingMissingItemNotice,
     SceneState,
+    TimeSkipProposal,
     VmEvent,
     apply_event,
     is_pvp_covert_blocked,
+    resolve_awareness_level,
+    resolve_target_visibility,
     trigger_event_hooks,
 )
 
@@ -34,7 +41,7 @@ MODULE_MANIFEST = MeddahModuleManifest(
     requires_any_primitive=("covert_stealth", "covert_theft", "covert_disguise"),
     provides=ModuleProvides(
         commands=("hide", "sneak", "steal", "plant", "disguise"),
-        ui_panels=("awareness_indicator", "disguise_badge"),
+        ui_panels=("awareness_indicator", "disguise_badge", "disguise_wardrobe"),
         event_hooks=(
             "on_awareness_changed",
             "on_stealth_noise",
@@ -45,7 +52,12 @@ MODULE_MANIFEST = MeddahModuleManifest(
             "on_disguise_scrutinized",
             "on_disguise_blown",
         ),
-        schema_blocks=("CovertOpsConfigBlock", "ActiveDisguiseState", "PendingMissingItemNotice"),
+        schema_blocks=(
+            "CovertOpsConfigBlock",
+            "ActiveDisguiseState",
+            "DisguisePreset",
+            "PendingMissingItemNotice",
+        ),
     ),
     scope="campaign",
     ai_dependency="none",
@@ -65,6 +77,9 @@ class CovertTransitionResult(BaseModel):
     active_disguise: ActiveDisguiseState | None = None
     transferred_item_id: str | None = None
     triggered_notices: tuple[PendingMissingItemNotice, ...] = ()
+    saved_preset: DisguisePreset | None = None
+    started_activity: ActiveTimedActivity | None = None
+    proposed_time_skip: TimeSkipProposal | None = None
 
 
 class PerceivedIdentityView(BaseModel):
@@ -170,10 +185,7 @@ def get_awareness_level(
     target_id: str,
 ) -> str:
     """Return observer's current awareness level toward target without mutating rulesets."""
-    default_level = "unaware"
-    if ruleset.covert_ops is not None and ruleset.covert_ops.stealth is not None:
-        default_level = ruleset.covert_ops.stealth.unaware_level
-    return state.awareness_map.get(observer_id, {}).get(target_id, default_level)
+    return resolve_awareness_level(ruleset, state, observer_id, target_id)
 
 
 def set_awareness_level(
@@ -268,17 +280,8 @@ def is_target_visible_to_observer(
     observer_id: str,
     target_id: str,
 ) -> bool:
-    """Return True if target is visible to observer per awareness_map and hidden conditions."""
-    if not is_pillar_active(ruleset, "stealth"):
-        return True
-    st_cfg = _stealth_cfg(ruleset)
-    obs_entries = state.awareness_map.get(observer_id, {})
-    if target_id in obs_entries:
-        return obs_entries[target_id] == st_cfg.detected_level
-    target_ent = state.entities.get(target_id)
-    if target_ent is None:
-        return False
-    return not any(cid in target_ent.conditions for cid in st_cfg.hidden_condition_ids)
+    """Return True if target is visible to observer using stealth levels and bypass tags."""
+    return resolve_target_visibility(ruleset, state, observer_id, target_id)
 
 
 def notify_stealth_noise(
@@ -306,6 +309,28 @@ def notify_stealth_noise(
         },
     )
     return CovertTransitionResult(state=next_state, events=hook_events)
+
+
+def set_stealth_score(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    entity_id: str,
+    score: int | float | None,
+    *,
+    actor_seat_id: str | None = None,
+) -> CovertTransitionResult:
+    """Update an entity's cached stealth_score deterministically when stealth pillar is active."""
+    _stealth_cfg(ruleset)
+    if entity_id not in state.entities:
+        raise KeyError(f"Unknown entity '{entity_id}'")
+    evt = VmEvent(
+        event_id=_next_event_id(state),
+        event_type="STEALTH_SCORE_UPDATED",
+        actor_id=actor_seat_id or entity_id,
+        payload={"entity_id": entity_id, "stealth_score": score},
+    )
+    next_state = apply_event(ruleset, state, evt)
+    return CovertTransitionResult(state=next_state, events=(evt,))
 
 
 def _tag_for_provenance(
@@ -841,4 +866,223 @@ def check_speech_disguise_scrutiny(
         state=cur_state,
         events=tuple(emitted),
         active_disguise=cur_state.entities[speaker_id].active_disguise,
+    )
+
+
+def list_disguise_presets(state: SceneState, entity_id: str) -> tuple[DisguisePreset, ...]:
+    """List saved registered disguise slots for an entity in deterministic preset_id order."""
+    if entity_id not in state.entities:
+        raise KeyError(f"Unknown entity '{entity_id}'")
+    presets = state.entities[entity_id].disguise_presets
+    return tuple(presets[pid] for pid in sorted(presets))
+
+
+def save_disguise_preset(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    entity_id: str,
+    preset: DisguisePreset,
+    *,
+    actor_seat_id: str | None = None,
+) -> CovertTransitionResult:
+    """Save or overwrite a registered DisguisePreset slot on an entity."""
+    _require_pillar(ruleset, "disguise")
+    if entity_id not in state.entities:
+        raise KeyError(f"Unknown entity '{entity_id}'")
+    if preset.don_action_id is not None and preset.don_action_id not in ruleset.actions:
+        raise KeyError(f"Unknown don_action_id '{preset.don_action_id}' in ruleset.")
+    if preset.outfit_preset_id is not None:
+        inv = state.entity_inventories.get(entity_id)
+        if inv is None or preset.outfit_preset_id not in inv.outfit_presets:
+            raise KeyError(
+                f"Unknown outfit_preset_id '{preset.outfit_preset_id}' for entity '{entity_id}'."
+            )
+
+    evt = VmEvent(
+        event_id=_next_event_id(state),
+        event_type="DISGUISE_PRESET_UPDATED",
+        actor_id=actor_seat_id or entity_id,
+        payload={
+            "entity_id": entity_id,
+            "op": "save",
+            "preset": preset.model_dump(mode="json"),
+        },
+    )
+    next_state = apply_event(ruleset, state, evt)
+    saved = next_state.entities[entity_id].disguise_presets[preset.preset_id]
+    return CovertTransitionResult(
+        state=next_state,
+        events=(evt,),
+        saved_preset=saved,
+    )
+
+
+def delete_disguise_preset(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    entity_id: str,
+    preset_id: str,
+    *,
+    actor_seat_id: str | None = None,
+) -> CovertTransitionResult:
+    """Delete a registered DisguisePreset slot from an entity."""
+    _require_pillar(ruleset, "disguise")
+    if entity_id not in state.entities:
+        raise KeyError(f"Unknown entity '{entity_id}'")
+    if preset_id not in state.entities[entity_id].disguise_presets:
+        raise KeyError(f"Unknown disguise preset '{preset_id}' on entity '{entity_id}'.")
+
+    evt = VmEvent(
+        event_id=_next_event_id(state),
+        event_type="DISGUISE_PRESET_UPDATED",
+        actor_id=actor_seat_id or entity_id,
+        payload={"entity_id": entity_id, "op": "delete", "preset_id": preset_id},
+    )
+    next_state = apply_event(ruleset, state, evt)
+    return CovertTransitionResult(state=next_state, events=(evt,))
+
+
+def resolve_disguise_don_duration(ruleset: RulesetSchema, preset: DisguisePreset) -> int | None:
+    """Resolve ruleset/preset donning duration in seconds (None when instant/unspecified)."""
+    dg_cfg = _disguise_cfg(ruleset)
+    if preset.don_duration_seconds is not None:
+        return preset.don_duration_seconds
+    if preset.disguise_source in dg_cfg.source_don_durations_seconds:
+        return dg_cfg.source_don_durations_seconds[preset.disguise_source]
+    return dg_cfg.default_don_duration_seconds
+
+
+def don_disguise_preset(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    entity_id: str,
+    preset_id: str,
+    *,
+    quality_score: int | float | None = None,
+    actor_seat_id: str | None = None,
+    immediate: bool = False,
+    propose_time_skip: bool = True,
+    required_voter_seat_ids: Sequence[str] = (),
+    room_id: str | None = None,
+    override_duration_seconds: int | None = None,
+) -> CovertTransitionResult:
+    """Validate and don a DisguisePreset either immediately or via synchronized time skip."""
+    _require_pillar(ruleset, "disguise")
+    if entity_id not in state.entities:
+        raise KeyError(f"Unknown entity '{entity_id}'")
+    entity = state.entities[entity_id]
+    preset = entity.disguise_presets.get(preset_id)
+    if preset is None:
+        raise KeyError(f"Unknown disguise preset '{preset_id}' on entity '{entity_id}'.")
+
+    inv = state.entity_inventories.get(entity_id)
+    for req_iid in preset.required_item_ids:
+        if inv is None or req_iid not in inv.items:
+            raise ValueError(
+                f"Missing required disguise item '{req_iid}' for preset '{preset_id}'."
+            )
+    if preset.outfit_preset_id is not None:
+        if inv is None or preset.outfit_preset_id not in inv.outfit_presets:
+            raise KeyError(
+                f"Linked outfit preset '{preset.outfit_preset_id}' is missing on '{entity_id}'."
+            )
+        outfit = inv.outfit_presets[preset.outfit_preset_id]
+        for iid in (*outfit.worn_item_ids, *outfit.equipped_attachments.values()):
+            if iid not in inv.items:
+                raise ValueError(
+                    f"Linked outfit '{preset.outfit_preset_id}' requires missing item '{iid}'."
+                )
+
+    duration = (
+        override_duration_seconds
+        if override_duration_seconds is not None
+        else resolve_disguise_don_duration(ruleset, preset)
+    )
+    if duration is not None and duration > 0 and not immediate:
+        act_res = start_timed_activity(
+            ruleset,
+            state,
+            entity_id,
+            f"Don disguise: {preset.label}",
+            duration,
+            category="disguise_don",
+            interruptible=True,
+            room_id=room_id,
+            completion_payload={
+                "kind": "apply_disguise_preset",
+                "preset_id": preset.preset_id,
+                "quality_score": quality_score,
+                "outfit_preset_id": preset.outfit_preset_id,
+            },
+            actor_seat_id=actor_seat_id,
+        )
+        emitted: list[VmEvent] = list(act_res.events)
+        cur_state = act_res.state
+        prop_out: TimeSkipProposal | None = None
+        if propose_time_skip:
+            prop_res = open_time_skip_proposal(
+                ruleset,
+                cur_state,
+                entity_id,
+                f"Don disguise: {preset.label}",
+                duration,
+                proposer_seat_id=actor_seat_id or entity_id,
+                required_voter_seat_ids=required_voter_seat_ids,
+                auto_commit_if_solo=False,
+            )
+            cur_state = prop_res.state
+            emitted.extend(prop_res.events)
+            prop_out = prop_res.proposal
+        return CovertTransitionResult(
+            state=cur_state,
+            events=tuple(emitted),
+            saved_preset=preset,
+            started_activity=act_res.activity,
+            proposed_time_skip=prop_out,
+        )
+
+    disguise = ActiveDisguiseState(
+        alias_id=preset.alias_id,
+        presented_name=preset.presented_name,
+        presented_tags=tuple(sorted(set(preset.presented_tags))),
+        disguise_source=preset.disguise_source,
+        quality_score=quality_score,
+        voice_disguised=preset.voice_disguised,
+        portrait_override_ref=preset.portrait_override_ref,
+        token_override_ref=preset.token_override_ref,
+    )
+    evt = VmEvent(
+        event_id=_next_event_id(state),
+        event_type="DISGUISE_CHANGED",
+        actor_id=actor_seat_id or entity_id,
+        payload={
+            "entity_id": entity_id,
+            "op": "apply",
+            "active_disguise": disguise.model_dump(mode="json"),
+            "outfit_preset_id": preset.outfit_preset_id,
+            "preset_id": preset.preset_id,
+        },
+    )
+    emitted_imm: list[VmEvent] = [evt]
+    cur_state = apply_event(ruleset, state, evt)
+    cur_state, hook_events = trigger_event_hooks(
+        ruleset,
+        cur_state,
+        event_name="on_disguise_applied",
+        actor_id=entity_id,
+        event_data={
+            "entity_id": entity_id,
+            "alias_id": preset.alias_id,
+            "presented_name": preset.presented_name,
+            "quality_score": quality_score,
+            "disguise_source": preset.disguise_source,
+            "preset_id": preset.preset_id,
+        },
+    )
+    emitted_imm.extend(hook_events)
+    return CovertTransitionResult(
+        state=cur_state,
+        events=tuple(emitted_imm),
+        active_disguise=cur_state.entities[entity_id].active_disguise,
+        saved_preset=preset,
     )

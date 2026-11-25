@@ -18,11 +18,13 @@ from app.ruleset_vm.blocks import (
     OutcomeTier,
     PvpCovertPolicy,
     RulesetSchema,
+    StealthPillarConfig,
 )
 from app.ruleset_vm.flow_controller import FlowState, create_initial_flow
 from app.ruleset_vm.inventory_graph import (
     InventoryGraphState,
     ProvenanceState,
+    apply_outfit_preset,
     set_item_provenance,
     transfer_item_between_graphs,
 )
@@ -81,6 +83,92 @@ class ActiveDisguiseState(BaseModel):
     seen_through_by: tuple[str, ...] = ()
 
 
+class DisguisePreset(BaseModel):
+    """Saved named persona bundle linking alias, tags, outfit preset, kit items & timing."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    preset_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    alias_id: str = Field(min_length=1)
+    presented_name: str = Field(min_length=1)
+    presented_tags: tuple[str, ...] = ()
+    disguise_source: DisguiseSource = "kit"
+    outfit_preset_id: str | None = None
+    required_item_ids: tuple[str, ...] = ()
+    voice_disguised: bool = False
+    voice_modulator_profile_id: str | None = None
+    portrait_override_ref: str | None = None
+    token_override_ref: str | None = None
+    don_action_id: str | None = None
+    don_duration_seconds: int | None = Field(default=None, ge=0)
+
+
+TimedActivityCategory = Literal[
+    "disguise_don",
+    "disguise_doff",
+    "rest",
+    "ritual",
+    "craft",
+    "search",
+    "watch",
+    "custom",
+]
+TimedActivityStatus = Literal["in_progress", "paused", "completed", "cancelled"]
+TimeSkipVoteChoice = Literal["approve", "hold_act_first", "keep_exploring"]
+TimeSkipConsensusMode = Literal["unanimous", "majority", "gm_only"]
+TimeSkipProposalStatus = Literal["open", "held", "committed", "interrupted", "cancelled"]
+
+
+class ActiveTimedActivity(BaseModel):
+    """Non-blocking background or timed activity advancing monotonically with world time."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    activity_id: str = Field(min_length=1)
+    entity_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    category: TimedActivityCategory = "custom"
+    total_seconds: int = Field(ge=1)
+    remaining_seconds: int = Field(ge=0)
+    elapsed_seconds: int = Field(default=0, ge=0)
+    interruptible: bool = True
+    status: TimedActivityStatus = "in_progress"
+    room_id: str | None = None
+    completion_payload: dict[str, object] = Field(default_factory=dict)
+
+
+class ConcurrentActivitySelection(BaseModel):
+    """Player or companion activity scheduled to run concurrently during a time skip."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    entity_id: str = Field(min_length=1)
+    activity_label: str = Field(min_length=1)
+    category: TimedActivityCategory = "custom"
+    action_id: str | None = None
+    notes: str = ""
+
+
+class TimeSkipProposal(BaseModel):
+    """Hybrid multiplayer time-skip proposal supporting voting & concurrent activities."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    proposal_id: str = Field(min_length=1)
+    proposer_entity_id: str = Field(min_length=1)
+    proposer_seat_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    duration_seconds: int = Field(ge=1)
+    elapsed_seconds: int = Field(default=0, ge=0)
+    required_voter_seat_ids: tuple[str, ...] = ()
+    votes: dict[str, TimeSkipVoteChoice] = Field(default_factory=dict)
+    concurrent_activities: dict[str, ConcurrentActivitySelection] = Field(default_factory=dict)
+    consensus_mode: TimeSkipConsensusMode = "unanimous"
+    status: TimeSkipProposalStatus = "open"
+    interrupted_reason: str | None = None
+
+
 class PendingMissingItemNotice(BaseModel):
     """Delayed victim discovery countdown scheduled after covert item theft."""
 
@@ -111,6 +199,8 @@ class EntityState(BaseModel):
     available_forms: tuple[str, ...] = ()
     active_form: ActiveFormState | None = None
     active_disguise: ActiveDisguiseState | None = None
+    disguise_presets: dict[str, DisguisePreset] = Field(default_factory=dict)
+    stealth_score: int | float | None = None
     is_player_controlled: bool = False
 
 
@@ -132,6 +222,7 @@ class ComputedEntityView(BaseModel):
     active_disguise_alias: str | None = None
     presented_name: str = ""
     disguise_quality: int | float | None = None
+    stealth_score: int | float | None = None
     granted_actions: tuple[str, ...] = ()
 
     def to_eval_context(self) -> dict[str, object]:
@@ -149,13 +240,14 @@ class ComputedEntityView(BaseModel):
             "active_disguise_alias": self.active_disguise_alias,
             "presented_name": self.presented_name or self.name,
             "disguise_quality": self.disguise_quality,
+            "stealth_score": self.stealth_score,
             "granted_actions": list(self.granted_actions),
         }
         for prop_key, prop_val in self.properties.items():
             ctx[prop_key] = prop_val
-        for pool_key, pool_val in self.pools.items():
+        for pool_key, pool_v in self.pools.items():
             if pool_key not in ctx:
-                ctx[pool_key] = pool_val
+                ctx[pool_key] = pool_v
         return ctx
 
 
@@ -174,10 +266,15 @@ VmEventType = Literal[
     "FORM_CHANGED",
     "AWARENESS_CHANGED",
     "DISGUISE_CHANGED",
+    "DISGUISE_PRESET_UPDATED",
+    "STEALTH_SCORE_UPDATED",
     "ITEM_TRANSFERRED",
     "ITEM_PROVENANCE_CHANGED",
     "MISSING_NOTICE_TICKED",
     "COVERT_POLICY_UPDATED",
+    "TIMED_ACTIVITY_UPDATED",
+    "TIME_SKIP_UPDATED",
+    "WORLD_TIME_ADVANCED",
     "SHEET_OVERRIDE",
     "MODULE_OVERRIDE",
     "MESSAGE_EMITTED",
@@ -213,6 +310,9 @@ class SceneState(BaseModel):
     entity_inventories: dict[str, InventoryGraphState] = Field(default_factory=dict)
     pending_missing_notices: tuple[PendingMissingItemNotice, ...] = ()
     pvp_covert_policy: PvpCovertPolicy = "npc_only"
+    elapsed_world_seconds: int = Field(default=0, ge=0)
+    active_timed_activities: dict[str, ActiveTimedActivity] = Field(default_factory=dict)
+    pending_time_skip: TimeSkipProposal | None = None
     log_messages: tuple[str, ...] = ()
     event_seq: int = Field(default=0, ge=0)
 
@@ -302,6 +402,11 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
     disguise_alias = active_disguise.alias_id if active_disguise is not None else None
     presented_name = active_disguise.presented_name if active_disguise is not None else entity.name
     disguise_quality = active_disguise.quality_score if active_disguise is not None else None
+    stealth_score = (
+        entity.stealth_score
+        if (ruleset.covert_ops is not None and ruleset.covert_ops.stealth is not None)
+        else None
+    )
 
     def _build_ctx(cur_props: dict[str, ScalarValue]) -> dict[str, object]:
         ctx: dict[str, object] = {
@@ -315,6 +420,7 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
             "active_disguise_alias": disguise_alias,
             "presented_name": presented_name,
             "disguise_quality": disguise_quality,
+            "stealth_score": stealth_score,
         }
         ctx.update(cur_props)
         for pool_k, pool_v in eff_pools.items():
@@ -418,6 +524,7 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
         active_disguise_alias=disguise_alias,
         presented_name=presented_name,
         disguise_quality=disguise_quality,
+        stealth_score=stealth_score,
         granted_actions=eff_actions,
     )
 
@@ -778,6 +885,20 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
             updated_entities[entity_id] = entity.model_copy(
                 update={"active_disguise": next_disguise}
             )
+            raw_outfit_id = payload.get("outfit_preset_id")
+            if isinstance(raw_outfit_id, str) and raw_outfit_id:
+                inv = state.entity_inventories.get(entity_id)
+                if inv is not None:
+                    swapped_inv, _ = apply_outfit_preset(inv, raw_outfit_id)
+                    next_invs = dict(state.entity_inventories)
+                    next_invs[entity_id] = swapped_inv
+                    return state.model_copy(
+                        update={
+                            "entities": updated_entities,
+                            "entity_inventories": next_invs,
+                            "event_seq": next_seq,
+                        }
+                    )
         elif op == "seen_through" and entity.active_disguise is not None:
             observer_id = str(payload["observer_id"])
             seen_set = set(entity.active_disguise.seen_through_by)
@@ -790,6 +911,34 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
             )
         elif op == "blow":
             updated_entities[entity_id] = entity.model_copy(update={"active_disguise": None})
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
+    if event.event_type == "DISGUISE_PRESET_UPDATED":
+        entity_id = str(payload["entity_id"])
+        op = str(payload["op"])
+        entity = state.entities[entity_id]
+        presets = dict(entity.disguise_presets)
+        if op == "save":
+            preset = DisguisePreset.model_validate(payload["preset"])
+            presets[preset.preset_id] = preset
+        elif op == "delete":
+            preset_id = str(payload["preset_id"])
+            presets.pop(preset_id, None)
+        updated_entities = dict(state.entities)
+        updated_entities[entity_id] = entity.model_copy(update={"disguise_presets": presets})
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
+    if event.event_type == "STEALTH_SCORE_UPDATED":
+        entity_id = str(payload["entity_id"])
+        entity = state.entities[entity_id]
+        raw_score = payload.get("stealth_score")
+        next_score: int | float | None = (
+            raw_score
+            if isinstance(raw_score, (int, float)) and not isinstance(raw_score, bool)
+            else None
+        )
+        updated_entities = dict(state.entities)
+        updated_entities[entity_id] = entity.model_copy(update={"stealth_score": next_score})
         return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
 
     if event.event_type == "ITEM_TRANSFERRED":
@@ -906,6 +1055,56 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
         )
         return state.model_copy(update={"pvp_covert_policy": pol, "event_seq": next_seq})
 
+    if event.event_type == "TIMED_ACTIVITY_UPDATED":
+        entity_id = str(payload["entity_id"])
+        op = str(payload["op"])
+        next_activities = dict(state.active_timed_activities)
+        if op == "upsert":
+            act = ActiveTimedActivity.model_validate(payload["activity"])
+            next_activities[entity_id] = act
+        elif op == "remove":
+            next_activities.pop(entity_id, None)
+        return state.model_copy(
+            update={"active_timed_activities": next_activities, "event_seq": next_seq}
+        )
+
+    if event.event_type == "TIME_SKIP_UPDATED":
+        raw_prop = payload.get("proposal")
+        next_prop = (
+            TimeSkipProposal.model_validate(raw_prop) if isinstance(raw_prop, Mapping) else None
+        )
+        return state.model_copy(update={"pending_time_skip": next_prop, "event_seq": next_seq})
+
+    if event.event_type == "WORLD_TIME_ADVANCED":
+        raw_sec = payload.get("seconds", 0)
+        sec = int(raw_sec) if isinstance(raw_sec, int) and not isinstance(raw_sec, bool) else 0
+        if sec < 0:
+            raise ValueError("WORLD_TIME_ADVANCED seconds must be >= 0.")
+        next_elapsed = state.elapsed_world_seconds + sec
+        next_activities: dict[str, ActiveTimedActivity] = {}
+        for eid, act in state.active_timed_activities.items():
+            if act.status == "in_progress":
+                step = min(sec, act.remaining_seconds)
+                next_rem = act.remaining_seconds - step
+                next_act_elapsed = act.elapsed_seconds + step
+                next_status: TimedActivityStatus = "completed" if next_rem == 0 else "in_progress"
+                next_activities[eid] = act.model_copy(
+                    update={
+                        "remaining_seconds": next_rem,
+                        "elapsed_seconds": next_act_elapsed,
+                        "status": next_status,
+                    }
+                )
+            else:
+                next_activities[eid] = act
+        return state.model_copy(
+            update={
+                "elapsed_world_seconds": next_elapsed,
+                "active_timed_activities": next_activities,
+                "event_seq": next_seq,
+            }
+        )
+
     # ACTION_EXECUTED serves as an immutable audit marker in the event stream
     _ = ruleset
     return state.model_copy(update={"event_seq": next_seq})
@@ -921,6 +1120,79 @@ def replay_events(
     for evt in events:
         current = apply_event(ruleset, current, evt)
     return current
+
+
+def _stealth_visible_levels(st_cfg: StealthPillarConfig) -> set[str]:
+    return set(st_cfg.visible_levels) if st_cfg.visible_levels else {st_cfg.detected_level}
+
+
+def resolve_awareness_level(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    observer_id: str,
+    target_id: str,
+) -> str:
+    """Resolve observer->target awareness via explicit map, hidden conditions & bypass senses."""
+    if ruleset.covert_ops is None or ruleset.covert_ops.stealth is None:
+        return "detected"
+    st_cfg = ruleset.covert_ops.stealth
+    explicit = state.awareness_map.get(observer_id, {}).get(target_id)
+    if explicit is not None:
+        return explicit
+    target_ent = state.entities.get(target_id)
+    if target_ent is None:
+        return st_cfg.unaware_level
+    observer_ent = state.entities.get(observer_id)
+    observer_tags: set[str] = (
+        set(compute_entity_view(ruleset, observer_ent).tags) if observer_ent is not None else set()
+    )
+    for cid in st_cfg.hidden_condition_ids:
+        if cid not in target_ent.conditions:
+            continue
+        bypass_tags = set(st_cfg.sensory_bypass_tags.get(cid, ()))
+        if bypass_tags and (observer_tags & bypass_tags):
+            continue
+        return st_cfg.unaware_level
+    return st_cfg.detected_level
+
+
+def resolve_target_visibility(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    observer_id: str,
+    target_id: str,
+) -> bool:
+    """Return True if target is visible to observer using stealth levels and bypass tags."""
+    if ruleset.covert_ops is None or ruleset.covert_ops.stealth is None:
+        return True
+    if target_id not in state.entities:
+        return False
+    st_cfg = ruleset.covert_ops.stealth
+    level = resolve_awareness_level(ruleset, state, observer_id, target_id)
+    return level in _stealth_visible_levels(st_cfg)
+
+
+def _build_awareness_eval_ctx(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    actor_id: str | None,
+    target_id: str | None,
+) -> dict[str, object]:
+    if (
+        ruleset.covert_ops is None
+        or ruleset.covert_ops.stealth is None
+        or actor_id is None
+        or target_id is None
+        or actor_id not in state.entities
+        or target_id not in state.entities
+    ):
+        return {}
+    return {
+        "self_sees_target": resolve_awareness_level(ruleset, state, actor_id, target_id),
+        "target_sees_self": resolve_awareness_level(ruleset, state, target_id, actor_id),
+        "self_visible_to_target": resolve_target_visibility(ruleset, state, target_id, actor_id),
+        "target_visible_to_self": resolve_target_visibility(ruleset, state, actor_id, target_id),
+    }
 
 
 def is_pvp_covert_blocked(
@@ -1369,7 +1641,7 @@ def _resolve_effect_events(
         for obs_id, subj_id in pairs:
             if not effect.forced and is_pvp_covert_blocked(cur_state, obs_id, subj_id):
                 continue
-            prev_level = cur_state.awareness_map.get(obs_id, {}).get(subj_id, st_cfg.unaware_level)
+            prev_level = resolve_awareness_level(ruleset, cur_state, obs_id, subj_id)
             evt = VmEvent(
                 event_id=_next_event_id(cur_state, 0),
                 event_type="AWARENESS_CHANGED",
@@ -1757,6 +2029,7 @@ def _fire_event_hooks(
         ctx: dict[str, object] = {
             "@self": actor_view.to_eval_context() if actor_view is not None else None,
             "@target": target_view.to_eval_context() if target_view is not None else None,
+            "@awareness": _build_awareness_eval_ctx(ruleset, cur_state, actor_id, target_id),
             "@event": dict(event_data),
         }
         if bool(evaluate_formula(hook.condition, ctx)):
@@ -1856,6 +2129,7 @@ def execute_action(
     eval_ctx: dict[str, object] = {
         "@self": actor_view.to_eval_context(),
         "@target": target_view.to_eval_context() if target_view else None,
+        "@awareness": _build_awareness_eval_ctx(ruleset, state, actor_id, target_id),
     }
     if not bool(evaluate_formula(action.requires, eval_ctx)):
         raise ValueError(f"Precondition failed for action '{action_id}'.")
@@ -1998,6 +2272,21 @@ def execute_action(
                     matched_tier = tier
                     break
 
+    if (
+        roll_result is not None
+        and ruleset.covert_ops is not None
+        and ruleset.covert_ops.stealth is not None
+        and action_id in ruleset.covert_ops.stealth.hide_action_ids
+    ):
+        score_evt = VmEvent(
+            event_id=_next_event_id(cur_state, 0),
+            event_type="STEALTH_SCORE_UPDATED",
+            actor_id=actor_id,
+            payload={"entity_id": actor_id, "stealth_score": roll_result.total},
+        )
+        emitted.append(score_evt)
+        cur_state = apply_event(ruleset, cur_state, score_evt)
+
     # Apply outcome tier effects and action default_effects
     fresh_actor_view = compute_entity_view(ruleset, cur_state.entities[actor_id])
     fresh_target_view = (
@@ -2008,6 +2297,7 @@ def execute_action(
     effect_ctx: dict[str, object] = {
         "@self": fresh_actor_view.to_eval_context(),
         "@target": fresh_target_view.to_eval_context() if fresh_target_view else None,
+        "@awareness": _build_awareness_eval_ctx(ruleset, cur_state, actor_id, target_id),
         "@roll": (
             {
                 "total": roll_result.total,
@@ -2082,8 +2372,9 @@ def execute_action(
             has_hidden_cond = any(
                 cid in fresh_actor.conditions for cid in st_cfg.hidden_condition_ids
             )
+            visible_levels = _stealth_visible_levels(st_cfg)
             has_unseen_obs = any(
-                targets.get(actor_id) != st_cfg.detected_level
+                targets.get(actor_id) not in visible_levels
                 for targets in cur_state.awareness_map.values()
                 if actor_id in targets
             )

@@ -4,6 +4,32 @@
       "additionalProperties": false,
       "description": "Ruleset bindings for masked personas, disguise quality & scrutiny checks.",
       "properties": {
+        "default_doff_duration_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Doff Duration Seconds"
+        },
+        "default_don_duration_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Don Duration Seconds"
+        },
         "disguise_action_ids": {
           "default": [],
           "items": {
@@ -32,6 +58,13 @@
           },
           "title": "Scrutiny Action Ids",
           "type": "array"
+        },
+        "source_don_durations_seconds": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Source Don Durations Seconds",
+          "type": "object"
         }
       },
       "title": "DisguisePillarConfig",
@@ -91,6 +124,16 @@
           "title": "Noisy Action Tags",
           "type": "array"
         },
+        "sensory_bypass_tags": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Sensory Bypass Tags",
+          "type": "object"
+        },
         "sync_hidden_condition_on_detect": {
           "default": false,
           "title": "Sync Hidden Condition On Detect",
@@ -100,6 +143,14 @@
           "default": "unaware",
           "title": "Unaware Level",
           "type": "string"
+        },
+        "visible_levels": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Visible Levels",
+          "type": "array"
         }
       },
       "title": "StealthPillarConfig",

@@ -1,0 +1,140 @@
+{
+  "additionalProperties": false,
+  "description": "Saved named persona bundle linking alias, tags, outfit preset, kit items & timing.",
+  "properties": {
+    "alias_id": {
+      "minLength": 1,
+      "title": "Alias Id",
+      "type": "string"
+    },
+    "disguise_source": {
+      "default": "kit",
+      "enum": [
+        "apparel",
+        "kit",
+        "form",
+        "magical",
+        "digital"
+      ],
+      "title": "Disguise Source",
+      "type": "string"
+    },
+    "don_action_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Don Action Id"
+    },
+    "don_duration_seconds": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Don Duration Seconds"
+    },
+    "label": {
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "outfit_preset_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Outfit Preset Id"
+    },
+    "portrait_override_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Portrait Override Ref"
+    },
+    "presented_name": {
+      "minLength": 1,
+      "title": "Presented Name",
+      "type": "string"
+    },
+    "presented_tags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Presented Tags",
+      "type": "array"
+    },
+    "preset_id": {
+      "minLength": 1,
+      "title": "Preset Id",
+      "type": "string"
+    },
+    "required_item_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Item Ids",
+      "type": "array"
+    },
+    "token_override_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Token Override Ref"
+    },
+    "voice_disguised": {
+      "default": false,
+      "title": "Voice Disguised",
+      "type": "boolean"
+    },
+    "voice_modulator_profile_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Voice Modulator Profile Id"
+    }
+  },
+  "required": [
+    "preset_id",
+    "label",
+    "alias_id",
+    "presented_name"
+  ],
+  "title": "DisguisePreset",
+  "type": "object"
+}

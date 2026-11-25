@@ -16,6 +16,7 @@ from app.ruleset_vm import (
     ConditionBlock,
     CovertOpsConfigBlock,
     DisguisePillarConfig,
+    DisguisePreset,
     EffectSpec,
     EntityState,
     EventHookBlock,
@@ -36,11 +37,14 @@ from app.ruleset_vm import (
     WearableLayerSpec,
     active_covert_pillars,
     add_item,
+    advance_world_time,
     apply_disguise,
     apply_event,
     blow_disguise,
     check_speech_disguise_scrutiny,
     compute_entity_view,
+    delete_disguise_preset,
+    don_disguise_preset,
     evaluate_formula,
     execute_action,
     get_awareness_level,
@@ -48,13 +52,19 @@ from app.ruleset_vm import (
     is_pillar_active,
     is_target_visible_to_observer,
     item_eval_context,
+    list_disguise_presets,
     mark_disguise_seen_through,
     mark_scene_item_provenance,
     notify_stealth_noise,
     replay_events,
+    resolve_awareness_level,
     resolve_perceived_identity,
+    resolve_target_visibility,
+    save_disguise_preset,
+    save_outfit_preset,
     set_awareness_level,
     set_pvp_covert_policy,
+    set_stealth_score,
     state_hash,
     tick_missing_item_notices,
     transfer_scene_item,
@@ -1019,3 +1029,272 @@ def test_covert_ops_validate_graph_catches_bad_references() -> None:
     assert "missing_steal" in joined
     assert "missing_disguise" in joined
     assert "missing_mask_cond" in joined
+
+    rs_bad_new = _covert_ruleset(
+        stealth=StealthPillarConfig(
+            visible_levels=("detected", "nonexistent_vis"),
+            sensory_bypass_tags={"unknown_hidden_cond": ("truesight",)},
+        ),
+        disguise=DisguisePillarConfig(
+            source_don_durations_seconds={"invalid_src": 30},
+        ),
+    )
+    errs_new = "\n".join(rs_bad_new.validate_graph())
+    assert "nonexistent_vis" in errs_new
+    assert "unknown_hidden_cond" in errs_new
+    assert "invalid_src" in errs_new
+
+
+@pytest.mark.zero_ai
+def test_stealth_alignment_defaults_awareness_ctx_cached_score_visible_levels_and_bypass() -> None:
+    """Validate detected default, visible_levels, bypass tags, stealth_score & @awareness."""
+    rs = RulesetSchema(
+        manifest=PackageManifest(
+            package_type="ruleset",
+            package_id="stealth_aligned_ruleset",
+            name="Stealth Aligned",
+            version="0.1.0",
+        ),
+        properties={"guile": PropertyBlock(prop_id="guile", label="Guile", default_value=14)},
+        conditions={
+            "concealed_in_shadow": ConditionBlock(
+                condition_id="concealed_in_shadow",
+                label="Concealed in Shadow",
+            ),
+        },
+        resolutions={
+            "hide_roll": ResolutionMechanicBlock(
+                mech_id="hide_roll",
+                label="Hide Roll",
+                randomizer=RandomizerSpec(kind="none", base_value=16),
+                tiers=(
+                    OutcomeTier(
+                        tier_id="hidden",
+                        label="Hidden",
+                        condition="true",
+                        effects=(
+                            EffectSpec(
+                                kind="add_condition",
+                                target_scope="self",
+                                target_key="concealed_in_shadow",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            "search_vs_dc": ResolutionMechanicBlock(
+                mech_id="search_vs_dc",
+                label="Search vs Cached Stealth Score",
+                randomizer=RandomizerSpec(kind="none", base_value=18),
+                target_formula="@target.stealth_score",
+                tiers=(
+                    OutcomeTier(
+                        tier_id="spotted",
+                        label="Spotted",
+                        condition="@roll.total >= @target.stealth_score",
+                        effects=(
+                            EffectSpec(
+                                kind="set_awareness",
+                                target_scope="target",
+                                target_key="exposed",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        },
+        actions={
+            "stealth_roll_hide": ActionBlock(
+                action_id="stealth_roll_hide",
+                label="Roll Stealth Hide",
+                category="action",
+                resolution_id="hide_roll",
+            ),
+            "spot_check": ActionBlock(
+                action_id="spot_check",
+                label="Spot Check",
+                category="action",
+                requires_target=True,
+                resolution_id="search_vs_dc",
+            ),
+            "ambush_strike": ActionBlock(
+                action_id="ambush_strike",
+                label="Ambush Strike",
+                category="action",
+                requires_target=True,
+                requires="@awareness.target_sees_self != 'detected'",
+                default_effects=(
+                    EffectSpec(
+                        kind="advance_clock",
+                        target_scope="scene",
+                        target_key="ambushes",
+                        formula="1",
+                    ),
+                ),
+            ),
+        },
+        covert_ops=CovertOpsConfigBlock(
+            stealth=StealthPillarConfig(
+                hide_action_ids=("stealth_roll_hide",),
+                hidden_condition_ids=("concealed_in_shadow",),
+                awareness_levels=("unaware", "suspected", "exposed", "detected"),
+                detected_level="detected",
+                unaware_level="unaware",
+                visible_levels=("exposed", "detected"),
+                sensory_bypass_tags={"concealed_in_shadow": ("truesight",)},
+            ),
+        ),
+    )
+
+    rogue = EntityState(entity_id="pc_1", name="Rogue", is_player_controlled=True)
+    guard = EntityState(entity_id="npc_1", name="Normal Guard")
+    seer = EntityState(entity_id="npc_2", name="Arcane Seer", tags=("truesight",))
+    scene = initialize_scene_state(rs, "aligned_stealth", [rogue, guard, seer])
+
+    # Unhidden target defaults to detected_level (not unaware!)
+    assert get_awareness_level(rs, scene, "npc_1", "pc_1") == "detected"
+    assert resolve_awareness_level(rs, scene, "npc_1", "pc_1") == "detected"
+    assert resolve_target_visibility(rs, scene, "npc_1", "pc_1") is True
+
+    # Dormant stealth pillar never exposes stealth_score in ComputedEntityView
+    dormant_rs = _covert_ruleset(include_covert_block=False)
+    assert (
+        compute_entity_view(
+            dormant_rs, rogue.model_copy(update={"stealth_score": 21})
+        ).stealth_score
+        is None
+    )
+
+    # Ambush fails while target detects self
+    with pytest.raises(ValueError, match="Precondition failed"):
+        execute_action(rs, scene, "pc_1", "ambush_strike", target_id="npc_1")
+
+    # Hide roll automatically caches stealth_score=16 and attaches concealed_in_shadow
+    hide_res = execute_action(rs, scene, "pc_1", "stealth_roll_hide")
+    s1 = hide_res.state
+    assert s1.entities["pc_1"].stealth_score == 16
+    assert compute_entity_view(rs, s1.entities["pc_1"]).stealth_score == 16
+    assert get_awareness_level(rs, s1, "npc_1", "pc_1") == "unaware"
+    assert resolve_target_visibility(rs, s1, "npc_1", "pc_1") is False
+
+    # Observer with sensory bypass tag ('truesight') sees through concealed_in_shadow!
+    assert get_awareness_level(rs, s1, "npc_2", "pc_1") == "detected"
+    assert resolve_target_visibility(rs, s1, "npc_2", "pc_1") is True
+
+    # @awareness.target_sees_self != 'detected' now allows ambush vs normal guard, fails vs seer
+    ambush_res = execute_action(rs, s1, "pc_1", "ambush_strike", target_id="npc_1")
+    assert ambush_res.state.clocks["ambushes"] == 1
+    with pytest.raises(ValueError, match="Precondition failed"):
+        execute_action(rs, ambush_res.state, "pc_1", "ambush_strike", target_id="npc_2")
+
+    # Guard rolls spot_check against @target.stealth_score (18 >= 16) -> sets 'exposed' (visible!)
+    spot_res = execute_action(rs, ambush_res.state, "npc_1", "spot_check", target_id="pc_1")
+    s2 = spot_res.state
+    assert get_awareness_level(rs, s2, "npc_1", "pc_1") == "exposed"
+    assert resolve_target_visibility(rs, s2, "npc_1", "pc_1") is True
+
+    manual_score = set_stealth_score(rs, s2, "pc_1", 22)
+    assert manual_score.state.entities["pc_1"].stealth_score == 22
+
+
+@pytest.mark.zero_ai
+def test_disguise_preset_crud_linked_outfit_required_items_and_timed_don() -> None:
+    """Registered DisguisePreset slots swap linked outfits & support ruleset don durations."""
+    rs_timed = _covert_ruleset(
+        disguise=DisguisePillarConfig(
+            default_don_duration_seconds=300,
+            source_don_durations_seconds={"kit": 600, "magical": 6},
+        ),
+    )
+    spy = EntityState(entity_id="pc_1", name="Spy", is_player_controlled=True)
+    guard = EntityState(entity_id="npc_1", name="Guard")
+
+    inv = InventoryGraphState()
+    tunic = ItemNode(
+        item_id="silk_tunic",
+        template_id="tunic",
+        name="Silk Tunic",
+        wearable=WearableLayerSpec(
+            layer_id="inner_clothing",
+            covered_locations=("torso",),
+            appearance_tags=("fine_silk",),
+        ),
+    )
+    kit = ItemNode(item_id="disguise_kit", template_id="kit", name="Master Disguise Kit")
+    inv = add_item(inv, tunic)
+    inv = wear_item(inv, "silk_tunic")
+    inv = save_outfit_preset(inv, "courier_garb", "Courier Attire")
+    inv = InventoryGraphState(items=inv.items, outfit_presets=inv.outfit_presets)
+    inv = add_item(inv, kit)
+
+    scene = initialize_scene_state(
+        rs_timed,
+        "wardrobe_scene",
+        [spy, guard],
+        entity_inventories={"pc_1": inv},
+    )
+
+    envoy_slot = DisguisePreset(
+        preset_id="envoy_slot",
+        label="Envoy Kestrel",
+        alias_id="envoy_kestrel",
+        presented_name="Envoy Kestrel",
+        presented_tags=("diplomat",),
+        disguise_source="kit",
+        outfit_preset_id="courier_garb",
+        required_item_ids=("disguise_kit",),
+        voice_disguised=True,
+        portrait_override_ref="envoy.png",
+    )
+    bad_slot = DisguisePreset(
+        preset_id="missing_req_slot",
+        label="Forger",
+        alias_id="forger",
+        presented_name="Forger",
+        required_item_ids=("missing_wax_seal",),
+    )
+
+    s1_res = save_disguise_preset(rs_timed, scene, "pc_1", envoy_slot)
+    s2_res = save_disguise_preset(rs_timed, s1_res.state, "pc_1", bad_slot)
+    listed = list_disguise_presets(s2_res.state, "pc_1")
+    assert [p.preset_id for p in listed] == ["envoy_slot", "missing_req_slot"]
+
+    with pytest.raises(ValueError, match="missing_wax_seal"):
+        don_disguise_preset(rs_timed, s2_res.state, "pc_1", "missing_req_slot")
+
+    # Timed kit source duration (600s) stages activity + proposal cleanly
+    timed_don = don_disguise_preset(rs_timed, s2_res.state, "pc_1", "envoy_slot", quality_score=19)
+    assert timed_don.started_activity is not None
+    assert timed_don.started_activity.total_seconds == 600
+    assert timed_don.proposed_time_skip is not None
+    assert timed_don.state.entities["pc_1"].active_disguise is None
+
+    done = advance_world_time(rs_timed, timed_don.state, 600)
+    assert done.state.entities["pc_1"].active_disguise is not None
+    assert done.state.entities["pc_1"].active_disguise.alias_id == "envoy_kestrel"
+    assert done.state.entities["pc_1"].active_disguise.voice_disguised is True
+    assert done.state.entities["pc_1"].active_disguise.quality_score == 19
+    assert "silk_tunic" in done.state.entity_inventories["pc_1"].worn_items
+    assert "pc_1" not in done.state.active_timed_activities
+
+    # Immediate swap works directly without time skip
+    imm_res = don_disguise_preset(
+        rs_timed,
+        s2_res.state,
+        "pc_1",
+        "envoy_slot",
+        immediate=True,
+    )
+    assert imm_res.state.entities["pc_1"].active_disguise is not None
+    assert "silk_tunic" in imm_res.state.entity_inventories["pc_1"].worn_items
+
+    del_res = delete_disguise_preset(rs_timed, imm_res.state, "pc_1", "missing_req_slot")
+    assert [p.preset_id for p in list_disguise_presets(del_res.state, "pc_1")] == ["envoy_slot"]
+
+    all_events = [
+        *s1_res.events,
+        *s2_res.events,
+        *timed_don.events,
+        *done.events,
+    ]
+    assert state_hash(replay_events(rs_timed, scene, all_events)) == state_hash(done.state)

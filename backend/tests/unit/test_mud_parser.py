@@ -213,3 +213,56 @@ def test_non_interrupting_whisper_and_multi_hop_shout() -> None:
     assert "crypt_below" in shout.adjacent_bleed
     assert "vertical shaft" in shout.adjacent_bleed["crypt_below"]
     assert "sealed_sanctum" not in shout.adjacent_bleed
+
+
+@pytest.mark.zero_ai
+def test_covert_and_time_control_mud_verbs() -> None:
+    """Covert (disguise/hide/steal/plant) and time_control (timeskip/wait) verbs route in <5ms."""
+    disguise_list = parse_mud_command("disguise list")
+    assert disguise_list.category == "covert"
+    assert disguise_list.verb == "disguise"
+    assert disguise_list.args == ("list",)
+
+    disguise_save = parse_mud_command("/disguise save envoy_slot")
+    assert disguise_save.category == "covert"
+    assert disguise_save.args == ("save", "envoy_slot")
+
+    disguise_don = parse_mud_command("disguise don envoy_slot")
+    assert disguise_don.category == "covert"
+    assert disguise_don.args == ("don", "envoy_slot")
+
+    disguise_swap = parse_mud_command("disguise swap guard_slot")
+    assert disguise_swap.category == "covert"
+    assert disguise_swap.args == ("swap", "guard_slot")
+
+    disguise_rm = parse_mud_command("disguise remove")
+    assert disguise_rm.category == "covert"
+    assert disguise_rm.args == ("remove",)
+
+    assert parse_mud_command("hide").category == "covert"
+    assert parse_mud_command("sneak").category == "covert"
+
+    steal_cmd = parse_mud_command("steal @guard pouch")
+    assert steal_cmd.category == "covert"
+    assert steal_cmd.verb == "steal"
+    assert steal_cmd.target_token == "guard"
+    assert steal_cmd.args == ("@guard", "pouch")
+
+    plant_cmd = parse_mud_command("plant @noble ledger")
+    assert plant_cmd.category == "covert"
+    assert plant_cmd.verb == "plant"
+    assert plant_cmd.target_token == "noble"
+
+    ts_dur = parse_mud_command("timeskip 10m")
+    assert ts_dur.category == "time_control"
+    assert ts_dur.verb == "timeskip"
+    assert ts_dur.args == ("10m",)
+
+    ts_app = parse_mud_command("timeskip approve")
+    assert ts_app.category == "time_control"
+    assert ts_app.args == ("approve",)
+
+    wait_cmd = parse_mud_command("wait 10m")
+    assert wait_cmd.category == "time_control"
+    assert wait_cmd.verb == "wait"
+    assert wait_cmd.args == ("10m",)

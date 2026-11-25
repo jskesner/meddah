@@ -272,6 +272,8 @@ class StealthPillarConfig(BaseModel):
     awareness_levels: tuple[str, ...] = ("unaware", "suspected", "searching", "detected")
     detected_level: str = "detected"
     unaware_level: str = "unaware"
+    visible_levels: tuple[str, ...] = ()
+    sensory_bypass_tags: dict[str, tuple[str, ...]] = Field(default_factory=dict)
     sync_hidden_condition_on_detect: bool = False
     noisy_action_tags: tuple[str, ...] = ()
 
@@ -299,6 +301,9 @@ class DisguisePillarConfig(BaseModel):
     scrutiny_action_ids: tuple[str, ...] = ()
     disguised_condition_ids: tuple[str, ...] = ()
     requires_voice_modulation_for_speech: bool = False
+    default_don_duration_seconds: int | None = Field(default=None, ge=0)
+    default_doff_duration_seconds: int | None = Field(default=None, ge=0)
+    source_don_durations_seconds: dict[str, int] = Field(default_factory=dict)
 
 
 class CovertOpsConfigBlock(BaseModel):
@@ -528,6 +533,17 @@ class RulesetSchema(BaseModel):
                         f"CovertOps stealth unaware_level '{st_cfg.unaware_level}' "
                         "is missing from awareness_levels"
                     )
+                for lvl in st_cfg.visible_levels:
+                    if lvl not in st_cfg.awareness_levels:
+                        errors.append(
+                            f"CovertOps stealth visible_levels entry '{lvl}' "
+                            "is missing from awareness_levels"
+                        )
+                for cond_id in st_cfg.sensory_bypass_tags:
+                    if cond_id not in self.conditions:
+                        errors.append(
+                            f"CovertOps sensory_bypass_tags references unknown '{cond_id}'"
+                        )
             if self.covert_ops.theft is not None:
                 th_cfg = self.covert_ops.theft
                 for aid in (
@@ -545,6 +561,16 @@ class RulesetSchema(BaseModel):
                 for cid in dg_cfg.disguised_condition_ids:
                     if cid not in self.conditions:
                         errors.append(f"CovertOps disguise references unknown condition '{cid}'")
+                valid_sources = {"apparel", "kit", "form", "magical", "digital"}
+                for src, dur in dg_cfg.source_don_durations_seconds.items():
+                    if src not in valid_sources:
+                        errors.append(
+                            f"CovertOps source_don_durations_seconds unknown source '{src}'"
+                        )
+                    if dur < 0:
+                        errors.append(
+                            f"CovertOps disguise duration for '{src}' must be >= 0 (got {dur})"
+                        )
 
         return errors
 

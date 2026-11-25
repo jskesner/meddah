@@ -52,7 +52,7 @@ flowchart TD
 ```
 
 #### 1. Resting: Wilderness/Dungeon Camping vs. Safe Haven Rest & Settlement Danger Zoning
-When the player(s) initiate a rest (via the **`[Rest / Camp]`** HUD button, typing `rest` or `camp` in the MUD terminal, or via a **Party Vote** in multiplayer), the engine inspects the current room's `safety_rating` alongside the active ruleset's `RestTierBlocks` (e.g., *Breather / Short Rest*, *Field Camp / Long Rest*, *Full Haven Recovery*).
+When the player(s) initiate a rest (via the **`[Rest / Camp]`** HUD button, typing `rest` or `camp` in the MUD terminal, or via a **Layer-0 `TimeSkipProposal` / Party Vote** in `backend/app/ruleset_vm/time_skip.py` — `ADR-0135`), the engine inspects the current room's `safety_rating` alongside the active ruleset's `RestTierBlocks` (e.g., *Breather / Short Rest*, *Field Camp / Long Rest*, *Full Haven Recovery*). For shorter non-rest durations (`1 min`, `10 min`, `30 min`, `1 hr`), the same `TimeSkipProposal` banner lets split-party rooms `Approve`, `Schedule Concurrent Activity`, `Hold to Act First`, or `Keep Exploring` asynchronously without freezing active rooms, and `interrupt_time_skip` preserves exact partial progress if a hazard interrupts mid-skip.
 
 **Settlements and Cities Are Not Monolithic Havens**: Room nodes across towns, cities, and stations carry an authoritative **Settlement Safety Rating Triad**:
 1. **`safety_rating: "safe_haven"` (Private Sanctuaries)**: Dedicated secure quarters (locked inn bedrooms, player apartments/homes, allied guildhall dorms, private medical suites, secured vessel cabins, party strongholds). Ambient random wanderers are suppressed (`0%`). Long rests do not require watch shifts.
