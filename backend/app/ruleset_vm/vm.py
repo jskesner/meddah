@@ -16,9 +16,18 @@ from app.ruleset_vm.blocks import (
     FormPoolSpec,
     GearHandlingMode,
     OutcomeTier,
+    PvpCovertPolicy,
     RulesetSchema,
+    StealthPillarConfig,
 )
 from app.ruleset_vm.flow_controller import FlowState, create_initial_flow
+from app.ruleset_vm.inventory_graph import (
+    InventoryGraphState,
+    ProvenanceState,
+    apply_outfit_preset,
+    set_item_provenance,
+    transfer_item_between_graphs,
+)
 from app.ruleset_vm.randomizers import DeckRuntimeState, RollResult, resolve_randomizer
 from app.ruleset_vm.reaction_window import (
     ReactionWindowState,
@@ -55,6 +64,125 @@ class ActiveFormState(BaseModel):
     source_entity_id: str | None = None
 
 
+DisguiseSource = Literal["apparel", "kit", "form", "magical", "digital"]
+
+
+class ActiveDisguiseState(BaseModel):
+    """Non-stat persona overlay masking name, portrait, tags & alias (ADR-0134)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    alias_id: str = Field(min_length=1)
+    presented_name: str = Field(min_length=1)
+    presented_tags: tuple[str, ...] = ()
+    disguise_source: DisguiseSource = "kit"
+    quality_score: int | float | None = None
+    voice_disguised: bool = False
+    portrait_override_ref: str | None = None
+    token_override_ref: str | None = None
+    seen_through_by: tuple[str, ...] = ()
+
+
+class DisguisePreset(BaseModel):
+    """Saved named persona bundle linking alias, tags, outfit preset, kit items & timing."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    preset_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    alias_id: str = Field(min_length=1)
+    presented_name: str = Field(min_length=1)
+    presented_tags: tuple[str, ...] = ()
+    disguise_source: DisguiseSource = "kit"
+    outfit_preset_id: str | None = None
+    required_item_ids: tuple[str, ...] = ()
+    voice_disguised: bool = False
+    voice_modulator_profile_id: str | None = None
+    portrait_override_ref: str | None = None
+    token_override_ref: str | None = None
+    don_action_id: str | None = None
+    don_duration_seconds: int | None = Field(default=None, ge=0)
+
+
+TimedActivityCategory = Literal[
+    "disguise_don",
+    "disguise_doff",
+    "rest",
+    "ritual",
+    "craft",
+    "search",
+    "watch",
+    "custom",
+]
+TimedActivityStatus = Literal["in_progress", "paused", "completed", "cancelled"]
+TimeSkipVoteChoice = Literal["approve", "hold_act_first", "keep_exploring"]
+TimeSkipConsensusMode = Literal["unanimous", "majority", "gm_only"]
+TimeSkipProposalStatus = Literal["open", "held", "committed", "interrupted", "cancelled"]
+
+
+class ActiveTimedActivity(BaseModel):
+    """Non-blocking background or timed activity advancing monotonically with world time."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    activity_id: str = Field(min_length=1)
+    entity_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    category: TimedActivityCategory = "custom"
+    total_seconds: int = Field(ge=1)
+    remaining_seconds: int = Field(ge=0)
+    elapsed_seconds: int = Field(default=0, ge=0)
+    interruptible: bool = True
+    status: TimedActivityStatus = "in_progress"
+    room_id: str | None = None
+    completion_payload: dict[str, object] = Field(default_factory=dict)
+
+
+class ConcurrentActivitySelection(BaseModel):
+    """Player or companion activity scheduled to run concurrently during a time skip."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    entity_id: str = Field(min_length=1)
+    activity_label: str = Field(min_length=1)
+    category: TimedActivityCategory = "custom"
+    action_id: str | None = None
+    notes: str = ""
+
+
+class TimeSkipProposal(BaseModel):
+    """Hybrid multiplayer time-skip proposal supporting voting & concurrent activities."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    proposal_id: str = Field(min_length=1)
+    proposer_entity_id: str = Field(min_length=1)
+    proposer_seat_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    duration_seconds: int = Field(ge=1)
+    elapsed_seconds: int = Field(default=0, ge=0)
+    required_voter_seat_ids: tuple[str, ...] = ()
+    votes: dict[str, TimeSkipVoteChoice] = Field(default_factory=dict)
+    concurrent_activities: dict[str, ConcurrentActivitySelection] = Field(default_factory=dict)
+    consensus_mode: TimeSkipConsensusMode = "unanimous"
+    status: TimeSkipProposalStatus = "open"
+    interrupted_reason: str | None = None
+
+
+class PendingMissingItemNotice(BaseModel):
+    """Delayed victim discovery countdown scheduled after covert item theft."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    notice_id: str = Field(min_length=1)
+    victim_entity_id: str = Field(min_length=1)
+    thief_entity_id: str = Field(min_length=1)
+    item_id: str = Field(min_length=1)
+    item_name: str = Field(min_length=1)
+    remaining_turns: int = Field(ge=1)
+    origin_jurisdiction_id: str | None = None
+
+
 class EntityState(BaseModel):
     """Authoritative event-sourced state of a single character, creature, or object."""
 
@@ -70,6 +198,10 @@ class EntityState(BaseModel):
     granted_actions: tuple[str, ...] = ()
     available_forms: tuple[str, ...] = ()
     active_form: ActiveFormState | None = None
+    active_disguise: ActiveDisguiseState | None = None
+    disguise_presets: dict[str, DisguisePreset] = Field(default_factory=dict)
+    stealth_score: int | float | None = None
+    is_player_controlled: bool = False
 
 
 class ComputedEntityView(BaseModel):
@@ -87,6 +219,10 @@ class ComputedEntityView(BaseModel):
     blocked_tags: tuple[str, ...]
     active_form_id: str | None = None
     active_form_involuntary: bool = False
+    active_disguise_alias: str | None = None
+    presented_name: str = ""
+    disguise_quality: int | float | None = None
+    stealth_score: int | float | None = None
     granted_actions: tuple[str, ...] = ()
 
     def to_eval_context(self) -> dict[str, object]:
@@ -101,13 +237,17 @@ class ComputedEntityView(BaseModel):
             "blocked_tags": list(self.blocked_tags),
             "active_form_id": self.active_form_id,
             "active_form_involuntary": self.active_form_involuntary,
+            "active_disguise_alias": self.active_disguise_alias,
+            "presented_name": self.presented_name or self.name,
+            "disguise_quality": self.disguise_quality,
+            "stealth_score": self.stealth_score,
             "granted_actions": list(self.granted_actions),
         }
         for prop_key, prop_val in self.properties.items():
             ctx[prop_key] = prop_val
-        for pool_key, pool_val in self.pools.items():
+        for pool_key, pool_v in self.pools.items():
             if pool_key not in ctx:
-                ctx[pool_key] = pool_val
+                ctx[pool_key] = pool_v
         return ctx
 
 
@@ -124,6 +264,17 @@ VmEventType = Literal[
     "RNG_ADVANCED",
     "CHARACTER_ADVANCED",
     "FORM_CHANGED",
+    "AWARENESS_CHANGED",
+    "DISGUISE_CHANGED",
+    "DISGUISE_PRESET_UPDATED",
+    "STEALTH_SCORE_UPDATED",
+    "ITEM_TRANSFERRED",
+    "ITEM_PROVENANCE_CHANGED",
+    "MISSING_NOTICE_TICKED",
+    "COVERT_POLICY_UPDATED",
+    "TIMED_ACTIVITY_UPDATED",
+    "TIME_SKIP_UPDATED",
+    "WORLD_TIME_ADVANCED",
     "SHEET_OVERRIDE",
     "MODULE_OVERRIDE",
     "MESSAGE_EMITTED",
@@ -155,6 +306,13 @@ class SceneState(BaseModel):
     pending_reaction: ReactionWindowState | None = None
     active_modules: tuple[str, ...] = ()
     module_sub_options: dict[str, dict[str, str | bool | int]] = Field(default_factory=dict)
+    awareness_map: dict[str, dict[str, str]] = Field(default_factory=dict)
+    entity_inventories: dict[str, InventoryGraphState] = Field(default_factory=dict)
+    pending_missing_notices: tuple[PendingMissingItemNotice, ...] = ()
+    pvp_covert_policy: PvpCovertPolicy = "npc_only"
+    elapsed_world_seconds: int = Field(default=0, ge=0)
+    active_timed_activities: dict[str, ActiveTimedActivity] = Field(default_factory=dict)
+    pending_time_skip: TimeSkipProposal | None = None
     log_messages: tuple[str, ...] = ()
     event_seq: int = Field(default=0, ge=0)
 
@@ -236,6 +394,19 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
         if (form_def is not None and active_form is not None)
         else False
     )
+    active_disguise = (
+        entity.active_disguise
+        if (ruleset.covert_ops is not None and ruleset.covert_ops.disguise is not None)
+        else None
+    )
+    disguise_alias = active_disguise.alias_id if active_disguise is not None else None
+    presented_name = active_disguise.presented_name if active_disguise is not None else entity.name
+    disguise_quality = active_disguise.quality_score if active_disguise is not None else None
+    stealth_score = (
+        entity.stealth_score
+        if (ruleset.covert_ops is not None and ruleset.covert_ops.stealth is not None)
+        else None
+    )
 
     def _build_ctx(cur_props: dict[str, ScalarValue]) -> dict[str, object]:
         ctx: dict[str, object] = {
@@ -246,6 +417,10 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
             "tags": list(merged_tags),
             "active_form_id": effective_form_id,
             "active_form_involuntary": active_form_involuntary,
+            "active_disguise_alias": disguise_alias,
+            "presented_name": presented_name,
+            "disguise_quality": disguise_quality,
+            "stealth_score": stealth_score,
         }
         ctx.update(cur_props)
         for pool_k, pool_v in eff_pools.items():
@@ -346,6 +521,10 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
         blocked_tags=tuple(sorted(blocked_tags)),
         active_form_id=effective_form_id,
         active_form_involuntary=active_form_involuntary,
+        active_disguise_alias=disguise_alias,
+        presented_name=presented_name,
+        disguise_quality=disguise_quality,
+        stealth_score=stealth_score,
         granted_actions=eff_actions,
     )
 
@@ -412,6 +591,8 @@ def initialize_scene_state(
     *,
     scene_seed: str = "meddah-default-seed",
     active_modules: Sequence[str] = (),
+    entity_inventories: Mapping[str, InventoryGraphState] | None = None,
+    pvp_covert_policy: PvpCovertPolicy = "npc_only",
 ) -> SceneState:
     """Create a deterministic initial SceneState with initialized pools, clocks, and RNG."""
     rng_reg = SceneRngRegistry(scene_seed)
@@ -440,6 +621,8 @@ def initialize_scene_state(
         flow=create_initial_flow(ruleset.flow_config),
         rng_streams=rng_reg.snapshots(),
         active_modules=tuple(sorted(set(active_modules))),
+        entity_inventories=dict(entity_inventories or {}),
+        pvp_covert_policy=pvp_covert_policy,
     )
 
 
@@ -683,6 +866,245 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
                 updated_entities[entity_id] = entity.model_copy(update={"active_form": None})
         return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
 
+    if event.event_type == "AWARENESS_CHANGED":
+        observer_id = str(payload["observer_id"])
+        target_id = str(payload["target_id"])
+        level = str(payload["level"])
+        updated_awareness = {obs: dict(targets) for obs, targets in state.awareness_map.items()}
+        obs_map = updated_awareness.setdefault(observer_id, {})
+        obs_map[target_id] = level
+        return state.model_copy(update={"awareness_map": updated_awareness, "event_seq": next_seq})
+
+    if event.event_type == "DISGUISE_CHANGED":
+        entity_id = str(payload["entity_id"])
+        op = str(payload["op"])
+        entity = state.entities[entity_id]
+        updated_entities = dict(state.entities)
+        if op == "apply":
+            next_disguise = ActiveDisguiseState.model_validate(payload["active_disguise"])
+            updated_entities[entity_id] = entity.model_copy(
+                update={"active_disguise": next_disguise}
+            )
+            raw_outfit_id = payload.get("outfit_preset_id")
+            if isinstance(raw_outfit_id, str) and raw_outfit_id:
+                inv = state.entity_inventories.get(entity_id)
+                if inv is not None:
+                    swapped_inv, _ = apply_outfit_preset(inv, raw_outfit_id)
+                    next_invs = dict(state.entity_inventories)
+                    next_invs[entity_id] = swapped_inv
+                    return state.model_copy(
+                        update={
+                            "entities": updated_entities,
+                            "entity_inventories": next_invs,
+                            "event_seq": next_seq,
+                        }
+                    )
+        elif op == "seen_through" and entity.active_disguise is not None:
+            observer_id = str(payload["observer_id"])
+            seen_set = set(entity.active_disguise.seen_through_by)
+            seen_set.add(observer_id)
+            updated_disguise = entity.active_disguise.model_copy(
+                update={"seen_through_by": tuple(sorted(seen_set))}
+            )
+            updated_entities[entity_id] = entity.model_copy(
+                update={"active_disguise": updated_disguise}
+            )
+        elif op == "blow":
+            updated_entities[entity_id] = entity.model_copy(update={"active_disguise": None})
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
+    if event.event_type == "DISGUISE_PRESET_UPDATED":
+        entity_id = str(payload["entity_id"])
+        op = str(payload["op"])
+        entity = state.entities[entity_id]
+        presets = dict(entity.disguise_presets)
+        if op == "save":
+            preset = DisguisePreset.model_validate(payload["preset"])
+            presets[preset.preset_id] = preset
+        elif op == "delete":
+            preset_id = str(payload["preset_id"])
+            presets.pop(preset_id, None)
+        updated_entities = dict(state.entities)
+        updated_entities[entity_id] = entity.model_copy(update={"disguise_presets": presets})
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
+    if event.event_type == "STEALTH_SCORE_UPDATED":
+        entity_id = str(payload["entity_id"])
+        entity = state.entities[entity_id]
+        raw_score = payload.get("stealth_score")
+        next_score: int | float | None = (
+            raw_score
+            if isinstance(raw_score, (int, float)) and not isinstance(raw_score, bool)
+            else None
+        )
+        updated_entities = dict(state.entities)
+        updated_entities[entity_id] = entity.model_copy(update={"stealth_score": next_score})
+        return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
+
+    if event.event_type == "ITEM_TRANSFERRED":
+        from_id = str(payload["from_entity_id"])
+        to_id = str(payload["to_entity_id"])
+        item_id = str(payload["item_id"])
+        raw_container = payload.get("target_container_id")
+        target_container_id = str(raw_container) if isinstance(raw_container, str) else None
+        raw_prov = payload.get("provenance_state")
+        prov_state: ProvenanceState | None = (
+            cast(ProvenanceState, raw_prov)
+            if raw_prov in {"legitimate", "stolen", "planted", "contraband"}
+            else None
+        )
+        raw_stolen_from = payload.get("stolen_from_entity_id")
+        stolen_from_id = str(raw_stolen_from) if isinstance(raw_stolen_from, str) else None
+        raw_juris = payload.get("origin_jurisdiction_id")
+        juris_id = str(raw_juris) if isinstance(raw_juris, str) else None
+        raw_tag = payload.get("provenance_tag")
+        prov_tag = str(raw_tag) if isinstance(raw_tag, str) and raw_tag else None
+
+        next_invs = dict(state.entity_inventories)
+        src_inv = next_invs[from_id]
+        dst_inv = next_invs.get(to_id, InventoryGraphState())
+        to_ent = state.entities.get(to_id)
+        target_ctx = (
+            {"@self": compute_entity_view(ruleset, to_ent).to_eval_context()}
+            if to_ent is not None
+            else None
+        )
+        next_src, next_dst, _ = transfer_item_between_graphs(
+            src_inv,
+            dst_inv,
+            item_id,
+            target_container_id=target_container_id,
+            provenance_state=prov_state,
+            stolen_from_entity_id=stolen_from_id,
+            origin_jurisdiction_id=juris_id,
+            provenance_tag=prov_tag,
+            target_owner_ctx=target_ctx,
+        )
+        next_invs[from_id] = next_src
+        next_invs[to_id] = next_dst
+
+        next_notices = list(state.pending_missing_notices)
+        raw_notice = payload.get("notice")
+        if isinstance(raw_notice, Mapping):
+            next_notices.append(PendingMissingItemNotice.model_validate(raw_notice))
+
+        return state.model_copy(
+            update={
+                "entity_inventories": next_invs,
+                "pending_missing_notices": tuple(next_notices),
+                "event_seq": next_seq,
+            }
+        )
+
+    if event.event_type == "ITEM_PROVENANCE_CHANGED":
+        entity_id = str(payload["entity_id"])
+        item_id = str(payload["item_id"])
+        raw_prov = str(payload["provenance_state"])
+        prov_val: ProvenanceState = (
+            cast(ProvenanceState, raw_prov)
+            if raw_prov in {"legitimate", "stolen", "planted", "contraband"}
+            else "legitimate"
+        )
+        raw_owner = payload.get("owner_entity_id")
+        owner_id = str(raw_owner) if isinstance(raw_owner, str) else None
+        raw_juris = payload.get("origin_jurisdiction_id")
+        juris_id = str(raw_juris) if isinstance(raw_juris, str) else None
+        raw_stolen_from = payload.get("stolen_from_entity_id")
+        stolen_from_id = str(raw_stolen_from) if isinstance(raw_stolen_from, str) else None
+        raw_tag = payload.get("tag_to_add")
+        tag_to_add = str(raw_tag) if isinstance(raw_tag, str) and raw_tag else None
+        raw_rem_tags = payload.get("tags_to_remove", ())
+        rem_tags: tuple[str, ...] = (
+            tuple(str(t) for t in cast(Sequence[object], raw_rem_tags))
+            if isinstance(raw_rem_tags, Sequence) and not isinstance(raw_rem_tags, str)
+            else ()
+        )
+        next_invs = dict(state.entity_inventories)
+        next_invs[entity_id] = set_item_provenance(
+            next_invs[entity_id],
+            item_id,
+            provenance_state=prov_val,
+            owner_entity_id=owner_id,
+            origin_jurisdiction_id=juris_id,
+            stolen_from_entity_id=stolen_from_id,
+            tag_to_add=tag_to_add,
+            tags_to_remove=rem_tags,
+        )
+        return state.model_copy(update={"entity_inventories": next_invs, "event_seq": next_seq})
+
+    if event.event_type == "MISSING_NOTICE_TICKED":
+        raw_turns = payload.get("turns", 1)
+        turns = (
+            int(raw_turns) if isinstance(raw_turns, int) and not isinstance(raw_turns, bool) else 1
+        )
+        remaining: list[PendingMissingItemNotice] = []
+        for notice in state.pending_missing_notices:
+            next_rem = notice.remaining_turns - turns
+            if next_rem > 0:
+                remaining.append(notice.model_copy(update={"remaining_turns": next_rem}))
+        return state.model_copy(
+            update={"pending_missing_notices": tuple(remaining), "event_seq": next_seq}
+        )
+
+    if event.event_type == "COVERT_POLICY_UPDATED":
+        raw_pol = str(payload["pvp_covert_policy"])
+        pol: PvpCovertPolicy = (
+            cast(PvpCovertPolicy, raw_pol)
+            if raw_pol in {"npc_only", "gm_approved", "unrestricted"}
+            else "npc_only"
+        )
+        return state.model_copy(update={"pvp_covert_policy": pol, "event_seq": next_seq})
+
+    if event.event_type == "TIMED_ACTIVITY_UPDATED":
+        entity_id = str(payload["entity_id"])
+        op = str(payload["op"])
+        next_activities = dict(state.active_timed_activities)
+        if op == "upsert":
+            act = ActiveTimedActivity.model_validate(payload["activity"])
+            next_activities[entity_id] = act
+        elif op == "remove":
+            next_activities.pop(entity_id, None)
+        return state.model_copy(
+            update={"active_timed_activities": next_activities, "event_seq": next_seq}
+        )
+
+    if event.event_type == "TIME_SKIP_UPDATED":
+        raw_prop = payload.get("proposal")
+        next_prop = (
+            TimeSkipProposal.model_validate(raw_prop) if isinstance(raw_prop, Mapping) else None
+        )
+        return state.model_copy(update={"pending_time_skip": next_prop, "event_seq": next_seq})
+
+    if event.event_type == "WORLD_TIME_ADVANCED":
+        raw_sec = payload.get("seconds", 0)
+        sec = int(raw_sec) if isinstance(raw_sec, int) and not isinstance(raw_sec, bool) else 0
+        if sec < 0:
+            raise ValueError("WORLD_TIME_ADVANCED seconds must be >= 0.")
+        next_elapsed = state.elapsed_world_seconds + sec
+        next_activities: dict[str, ActiveTimedActivity] = {}
+        for eid, act in state.active_timed_activities.items():
+            if act.status == "in_progress":
+                step = min(sec, act.remaining_seconds)
+                next_rem = act.remaining_seconds - step
+                next_act_elapsed = act.elapsed_seconds + step
+                next_status: TimedActivityStatus = "completed" if next_rem == 0 else "in_progress"
+                next_activities[eid] = act.model_copy(
+                    update={
+                        "remaining_seconds": next_rem,
+                        "elapsed_seconds": next_act_elapsed,
+                        "status": next_status,
+                    }
+                )
+            else:
+                next_activities[eid] = act
+        return state.model_copy(
+            update={
+                "elapsed_world_seconds": next_elapsed,
+                "active_timed_activities": next_activities,
+                "event_seq": next_seq,
+            }
+        )
+
     # ACTION_EXECUTED serves as an immutable audit marker in the event stream
     _ = ruleset
     return state.model_copy(update={"event_seq": next_seq})
@@ -698,6 +1120,102 @@ def replay_events(
     for evt in events:
         current = apply_event(ruleset, current, evt)
     return current
+
+
+def _stealth_visible_levels(st_cfg: StealthPillarConfig) -> set[str]:
+    return set(st_cfg.visible_levels) if st_cfg.visible_levels else {st_cfg.detected_level}
+
+
+def resolve_awareness_level(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    observer_id: str,
+    target_id: str,
+) -> str:
+    """Resolve observer->target awareness via explicit map, hidden conditions & bypass senses."""
+    if ruleset.covert_ops is None or ruleset.covert_ops.stealth is None:
+        return "detected"
+    st_cfg = ruleset.covert_ops.stealth
+    explicit = state.awareness_map.get(observer_id, {}).get(target_id)
+    if explicit is not None:
+        return explicit
+    target_ent = state.entities.get(target_id)
+    if target_ent is None:
+        return st_cfg.unaware_level
+    observer_ent = state.entities.get(observer_id)
+    observer_tags: set[str] = (
+        set(compute_entity_view(ruleset, observer_ent).tags) if observer_ent is not None else set()
+    )
+    for cid in st_cfg.hidden_condition_ids:
+        if cid not in target_ent.conditions:
+            continue
+        bypass_tags = set(st_cfg.sensory_bypass_tags.get(cid, ()))
+        if bypass_tags and (observer_tags & bypass_tags):
+            continue
+        return st_cfg.unaware_level
+    return st_cfg.detected_level
+
+
+def resolve_target_visibility(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    observer_id: str,
+    target_id: str,
+) -> bool:
+    """Return True if target is visible to observer using stealth levels and bypass tags."""
+    if ruleset.covert_ops is None or ruleset.covert_ops.stealth is None:
+        return True
+    if target_id not in state.entities:
+        return False
+    st_cfg = ruleset.covert_ops.stealth
+    level = resolve_awareness_level(ruleset, state, observer_id, target_id)
+    return level in _stealth_visible_levels(st_cfg)
+
+
+def _build_awareness_eval_ctx(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    actor_id: str | None,
+    target_id: str | None,
+) -> dict[str, object]:
+    if (
+        ruleset.covert_ops is None
+        or ruleset.covert_ops.stealth is None
+        or actor_id is None
+        or target_id is None
+        or actor_id not in state.entities
+        or target_id not in state.entities
+    ):
+        return {}
+    return {
+        "self_sees_target": resolve_awareness_level(ruleset, state, actor_id, target_id),
+        "target_sees_self": resolve_awareness_level(ruleset, state, target_id, actor_id),
+        "self_visible_to_target": resolve_target_visibility(ruleset, state, target_id, actor_id),
+        "target_visible_to_self": resolve_target_visibility(ruleset, state, actor_id, target_id),
+    }
+
+
+def is_pvp_covert_blocked(
+    state: SceneState,
+    actor_id: str | None,
+    target_id: str | None,
+    *,
+    gm_approved: bool = False,
+) -> bool:
+    """Return True when host pvp_covert_policy forbids an unapproved PC-to-PC covert action."""
+    if actor_id is None or target_id is None or actor_id == target_id:
+        return False
+    actor_ent = state.entities.get(actor_id)
+    target_ent = state.entities.get(target_id)
+    if actor_ent is None or target_ent is None:
+        return False
+    if not (actor_ent.is_player_controlled and target_ent.is_player_controlled):
+        return False
+    if state.pvp_covert_policy == "npc_only":
+        return True
+    if state.pvp_covert_policy == "gm_approved":
+        return not gm_approved
+    return False
 
 
 def _next_event_id(state: SceneState, offset: int) -> str:
@@ -1101,6 +1619,359 @@ def _resolve_effect_events(
             hook_depth=hook_depth + 1,
         )
 
+    if effect.kind == "set_awareness":
+        if ruleset.covert_ops is None or ruleset.covert_ops.stealth is None:
+            return state
+        st_cfg = ruleset.covert_ops.stealth
+        level = effect.target_key or st_cfg.detected_level
+        if level not in st_cfg.awareness_levels:
+            return state
+        pairs: list[tuple[str, str]] = []
+        if effect.target_scope == "target":
+            if actor_id in state.entities and target_id is not None and target_id in state.entities:
+                pairs.append((actor_id, target_id))
+        elif actor_id is not None and actor_id in state.entities:
+            if target_id is not None and target_id in state.entities:
+                pairs.append((target_id, actor_id))
+            else:
+                for obs_id in sorted(state.entities):
+                    if obs_id != actor_id:
+                        pairs.append((obs_id, actor_id))
+        cur_state = state
+        for obs_id, subj_id in pairs:
+            if not effect.forced and is_pvp_covert_blocked(cur_state, obs_id, subj_id):
+                continue
+            prev_level = resolve_awareness_level(ruleset, cur_state, obs_id, subj_id)
+            evt = VmEvent(
+                event_id=_next_event_id(cur_state, 0),
+                event_type="AWARENESS_CHANGED",
+                actor_id=event_actor,
+                payload={
+                    "observer_id": obs_id,
+                    "target_id": subj_id,
+                    "level": level,
+                    "previous_level": prev_level,
+                },
+            )
+            pending_events.append(evt)
+            cur_state = apply_event(ruleset, cur_state, evt)
+            if st_cfg.sync_hidden_condition_on_detect and level == st_cfg.detected_level:
+                subj_ent = cur_state.entities[subj_id]
+                for cond_id in st_cfg.hidden_condition_ids:
+                    if cond_id in subj_ent.conditions:
+                        cond_evt = VmEvent(
+                            event_id=_next_event_id(cur_state, 0),
+                            event_type="CONDITION_CHANGED",
+                            actor_id=event_actor,
+                            payload={
+                                "entity_id": subj_id,
+                                "op": "remove",
+                                "condition_id": cond_id,
+                                "duration_turns": None,
+                            },
+                        )
+                        pending_events.append(cond_evt)
+                        cur_state = apply_event(ruleset, cur_state, cond_evt)
+            cur_state = _fire_event_hooks(
+                ruleset,
+                cur_state,
+                event_name="on_awareness_changed",
+                actor_id=obs_id,
+                target_id=subj_id,
+                event_data={
+                    "observer_id": obs_id,
+                    "target_id": subj_id,
+                    "level": level,
+                    "previous_level": prev_level,
+                    "source_entity_id": actor_id,
+                },
+                emitted=pending_events,
+                hook_depth=hook_depth + 1,
+            )
+        return cur_state
+
+    if effect.kind == "apply_disguise":
+        if ruleset.covert_ops is None or ruleset.covert_ops.disguise is None:
+            return state
+        if scope_entity_id is None or scope_entity_id not in state.entities:
+            return state
+        alias_id = effect.target_key or "masked_persona"
+        pres_name = (
+            effect.formula
+            if effect.formula and effect.formula != "0"
+            else alias_id.replace("_", " ").title()
+        )
+        quality_val: int | float | None = None
+        roll_raw = eval_ctx.get("@roll")
+        if isinstance(roll_raw, Mapping):
+            roll_map = cast(Mapping[object, object], roll_raw)
+            total_raw = roll_map.get("total")
+            if isinstance(total_raw, (int, float)) and not isinstance(total_raw, bool):
+                quality_val = total_raw
+        disguise = ActiveDisguiseState(
+            alias_id=alias_id,
+            presented_name=pres_name,
+            quality_score=quality_val,
+        )
+        evt = VmEvent(
+            event_id=_next_event_id(state, 0),
+            event_type="DISGUISE_CHANGED",
+            actor_id=event_actor,
+            payload={
+                "entity_id": scope_entity_id,
+                "op": "apply",
+                "active_disguise": disguise.model_dump(mode="json"),
+            },
+        )
+        pending_events.append(evt)
+        cur_state = apply_event(ruleset, state, evt)
+        return _fire_event_hooks(
+            ruleset,
+            cur_state,
+            event_name="on_disguise_applied",
+            actor_id=scope_entity_id,
+            target_id=None,
+            event_data={
+                "entity_id": scope_entity_id,
+                "alias_id": alias_id,
+                "presented_name": pres_name,
+                "quality_score": quality_val,
+                "source_entity_id": actor_id,
+            },
+            emitted=pending_events,
+            hook_depth=hook_depth + 1,
+        )
+
+    if effect.kind == "reveal_disguise":
+        if ruleset.covert_ops is None or ruleset.covert_ops.disguise is None:
+            return state
+        subject_id = (
+            target_id
+            if effect.target_scope == "target" and target_id is not None
+            else scope_entity_id
+        )
+        if subject_id is None or subject_id not in state.entities:
+            return state
+        subj_ent = state.entities[subject_id]
+        if subj_ent.active_disguise is None:
+            return state
+        prev_alias = subj_ent.active_disguise.alias_id
+        if effect.forced:
+            evt = VmEvent(
+                event_id=_next_event_id(state, 0),
+                event_type="DISGUISE_CHANGED",
+                actor_id=event_actor,
+                payload={
+                    "entity_id": subject_id,
+                    "op": "blow",
+                    "alias_id": prev_alias,
+                    "reason": "effect_blown",
+                },
+            )
+            pending_events.append(evt)
+            cur_state = apply_event(ruleset, state, evt)
+            return _fire_event_hooks(
+                ruleset,
+                cur_state,
+                event_name="on_disguise_blown",
+                actor_id=subject_id,
+                target_id=actor_id if actor_id in state.entities else None,
+                event_data={
+                    "entity_id": subject_id,
+                    "alias_id": prev_alias,
+                    "reason": "effect_blown",
+                    "source_entity_id": actor_id,
+                },
+                emitted=pending_events,
+                hook_depth=hook_depth + 1,
+            )
+        obs_id = effect.target_key or actor_id
+        if not obs_id:
+            return state
+        if not effect.forced and is_pvp_covert_blocked(state, obs_id, subject_id):
+            return state
+        evt = VmEvent(
+            event_id=_next_event_id(state, 0),
+            event_type="DISGUISE_CHANGED",
+            actor_id=event_actor,
+            payload={
+                "entity_id": subject_id,
+                "op": "seen_through",
+                "observer_id": obs_id,
+                "alias_id": prev_alias,
+            },
+        )
+        pending_events.append(evt)
+        cur_state = apply_event(ruleset, state, evt)
+        return _fire_event_hooks(
+            ruleset,
+            cur_state,
+            event_name="on_disguise_scrutinized",
+            actor_id=obs_id if obs_id in cur_state.entities else None,
+            target_id=subject_id,
+            event_data={
+                "observer_id": obs_id,
+                "target_id": subject_id,
+                "alias_id": prev_alias,
+                "reason": "effect_scrutiny",
+            },
+            emitted=pending_events,
+            hook_depth=hook_depth + 1,
+        )
+
+    if effect.kind == "transfer_item":
+        if ruleset.covert_ops is None or ruleset.covert_ops.theft is None:
+            return state
+        if (
+            actor_id is None
+            or target_id is None
+            or actor_id not in state.entities
+            or target_id not in state.entities
+        ):
+            return state
+        if not effect.forced and is_pvp_covert_blocked(state, actor_id, target_id):
+            return state
+        theft_cfg = ruleset.covert_ops.theft
+        if effect.target_scope == "target":
+            from_id = target_id
+            to_id = actor_id
+            default_prov: ProvenanceState = "stolen"
+        else:
+            from_id = actor_id
+            to_id = target_id
+            default_prov = "planted"
+        if from_id == to_id:
+            return state
+        prov_state: ProvenanceState = (
+            cast(ProvenanceState, effect.formula)
+            if effect.formula in {"legitimate", "stolen", "planted", "contraband"}
+            else default_prov
+        )
+        item_id = effect.target_key
+        src_inv = state.entity_inventories.get(from_id)
+        if src_inv is None or item_id not in src_inv.items:
+            return state
+        item_node = src_inv.items[item_id]
+        prov_tag: str | None = (
+            theft_cfg.stolen_tag
+            if prov_state == "stolen"
+            else (
+                theft_cfg.planted_tag
+                if prov_state == "planted"
+                else (theft_cfg.contraband_tag if prov_state == "contraband" else None)
+            )
+        )
+        delay = (
+            effect.duration_turns
+            if effect.duration_turns is not None
+            else (theft_cfg.default_notice_delay_turns if prov_state == "stolen" else None)
+        )
+        notice_payload: dict[str, object] | None = None
+        if delay is not None and prov_state == "stolen":
+            notice_payload = PendingMissingItemNotice(
+                notice_id=f"notice_{state.scene_id}_{state.event_seq + 1:06d}_{item_id}",
+                victim_entity_id=from_id,
+                thief_entity_id=to_id,
+                item_id=item_id,
+                item_name=item_node.name,
+                remaining_turns=delay,
+                origin_jurisdiction_id=item_node.origin_jurisdiction_id,
+            ).model_dump(mode="json")
+
+        evt = VmEvent(
+            event_id=_next_event_id(state, 0),
+            event_type="ITEM_TRANSFERRED",
+            actor_id=event_actor,
+            payload={
+                "from_entity_id": from_id,
+                "to_entity_id": to_id,
+                "item_id": item_id,
+                "provenance_state": prov_state,
+                "stolen_from_entity_id": from_id if prov_state == "stolen" else None,
+                "origin_jurisdiction_id": item_node.origin_jurisdiction_id,
+                "provenance_tag": prov_tag,
+                "notice": notice_payload,
+            },
+        )
+        pending_events.append(evt)
+        cur_state = apply_event(ruleset, state, evt)
+        if prov_state == "stolen":
+            return _fire_event_hooks(
+                ruleset,
+                cur_state,
+                event_name="on_item_stolen",
+                actor_id=to_id,
+                target_id=from_id,
+                event_data={
+                    "thief_entity_id": to_id,
+                    "victim_entity_id": from_id,
+                    "item_id": item_id,
+                    "item_name": item_node.name,
+                },
+                emitted=pending_events,
+                hook_depth=hook_depth + 1,
+            )
+        if prov_state == "planted":
+            return _fire_event_hooks(
+                ruleset,
+                cur_state,
+                event_name="on_item_planted",
+                actor_id=from_id,
+                target_id=to_id,
+                event_data={
+                    "planter_entity_id": from_id,
+                    "target_entity_id": to_id,
+                    "item_id": item_id,
+                    "item_name": item_node.name,
+                },
+                emitted=pending_events,
+                hook_depth=hook_depth + 1,
+            )
+        return cur_state
+
+    if effect.kind == "mark_provenance":
+        if ruleset.covert_ops is None or ruleset.covert_ops.theft is None:
+            return state
+        if scope_entity_id is None or scope_entity_id not in state.entities:
+            return state
+        inv = state.entity_inventories.get(scope_entity_id)
+        if inv is None or effect.target_key not in inv.items:
+            return state
+        theft_cfg = ruleset.covert_ops.theft
+        prov_val: ProvenanceState = (
+            cast(ProvenanceState, effect.formula)
+            if effect.formula in {"legitimate", "stolen", "planted", "contraband"}
+            else "legitimate"
+        )
+        tag_to_add = (
+            theft_cfg.stolen_tag
+            if prov_val == "stolen"
+            else (
+                theft_cfg.planted_tag
+                if prov_val == "planted"
+                else (theft_cfg.contraband_tag if prov_val == "contraband" else None)
+            )
+        )
+        rem_tags = (
+            (theft_cfg.stolen_tag, theft_cfg.planted_tag, theft_cfg.contraband_tag)
+            if prov_val == "legitimate"
+            else ()
+        )
+        evt = VmEvent(
+            event_id=_next_event_id(state, 0),
+            event_type="ITEM_PROVENANCE_CHANGED",
+            actor_id=event_actor,
+            payload={
+                "entity_id": scope_entity_id,
+                "item_id": effect.target_key,
+                "provenance_state": prov_val,
+                "tag_to_add": tag_to_add,
+                "tags_to_remove": list(rem_tags),
+            },
+        )
+        pending_events.append(evt)
+        return apply_event(ruleset, state, evt)
+
     if effect.kind == "advance_clock":
         delta = _as_int_value(evaluate_formula(effect.formula, eval_ctx), "clock delta")
         new_val = max(0, state.clocks.get(effect.target_key, 0) + delta)
@@ -1158,6 +2029,7 @@ def _fire_event_hooks(
         ctx: dict[str, object] = {
             "@self": actor_view.to_eval_context() if actor_view is not None else None,
             "@target": target_view.to_eval_context() if target_view is not None else None,
+            "@awareness": _build_awareness_eval_ctx(ruleset, cur_state, actor_id, target_id),
             "@event": dict(event_data),
         }
         if bool(evaluate_formula(hook.condition, ctx)):
@@ -1257,6 +2129,7 @@ def execute_action(
     eval_ctx: dict[str, object] = {
         "@self": actor_view.to_eval_context(),
         "@target": target_view.to_eval_context() if target_view else None,
+        "@awareness": _build_awareness_eval_ctx(ruleset, state, actor_id, target_id),
     }
     if not bool(evaluate_formula(action.requires, eval_ctx)):
         raise ValueError(f"Precondition failed for action '{action_id}'.")
@@ -1399,6 +2272,21 @@ def execute_action(
                     matched_tier = tier
                     break
 
+    if (
+        roll_result is not None
+        and ruleset.covert_ops is not None
+        and ruleset.covert_ops.stealth is not None
+        and action_id in ruleset.covert_ops.stealth.hide_action_ids
+    ):
+        score_evt = VmEvent(
+            event_id=_next_event_id(cur_state, 0),
+            event_type="STEALTH_SCORE_UPDATED",
+            actor_id=actor_id,
+            payload={"entity_id": actor_id, "stealth_score": roll_result.total},
+        )
+        emitted.append(score_evt)
+        cur_state = apply_event(ruleset, cur_state, score_evt)
+
     # Apply outcome tier effects and action default_effects
     fresh_actor_view = compute_entity_view(ruleset, cur_state.entities[actor_id])
     fresh_target_view = (
@@ -1409,6 +2297,7 @@ def execute_action(
     effect_ctx: dict[str, object] = {
         "@self": fresh_actor_view.to_eval_context(),
         "@target": fresh_target_view.to_eval_context() if fresh_target_view else None,
+        "@awareness": _build_awareness_eval_ctx(ruleset, cur_state, actor_id, target_id),
         "@roll": (
             {
                 "total": roll_result.total,
@@ -1475,6 +2364,34 @@ def execute_action(
         },
         emitted=emitted,
     )
+
+    if ruleset.covert_ops is not None and ruleset.covert_ops.stealth is not None:
+        st_cfg = ruleset.covert_ops.stealth
+        if set(action.tags) & set(st_cfg.noisy_action_tags):
+            fresh_actor = cur_state.entities[actor_id]
+            has_hidden_cond = any(
+                cid in fresh_actor.conditions for cid in st_cfg.hidden_condition_ids
+            )
+            visible_levels = _stealth_visible_levels(st_cfg)
+            has_unseen_obs = any(
+                targets.get(actor_id) not in visible_levels
+                for targets in cur_state.awareness_map.values()
+                if actor_id in targets
+            )
+            if has_hidden_cond or has_unseen_obs:
+                cur_state = _fire_event_hooks(
+                    ruleset,
+                    cur_state,
+                    event_name="on_stealth_noise",
+                    actor_id=actor_id,
+                    target_id=target_id,
+                    event_data={
+                        "action_id": action_id,
+                        "tags": list(action.tags),
+                        "source": "action",
+                    },
+                    emitted=emitted,
+                )
 
     return ActionResolutionResult(
         status="executed",

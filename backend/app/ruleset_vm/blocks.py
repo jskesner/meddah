@@ -74,6 +74,11 @@ class EffectSpec(BaseModel):
         "emit_message",
         "shift_form",
         "revert_form",
+        "set_awareness",
+        "apply_disguise",
+        "reveal_disguise",
+        "transfer_item",
+        "mark_provenance",
     ]
     target_scope: Literal["self", "target", "scene"] = "target"
     target_key: str = ""
@@ -252,6 +257,76 @@ class FormBlock(BaseModel):
     token_override_ref: str | None = None
 
 
+PvpCovertPolicy = Literal["npc_only", "gm_approved", "unrestricted"]
+CovertPillar = Literal["stealth", "theft", "disguise"]
+
+
+class StealthPillarConfig(BaseModel):
+    """Ruleset bindings for per-observer stealth awareness without overriding conditions."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    hide_action_ids: tuple[str, ...] = ()
+    hidden_condition_ids: tuple[str, ...] = ()
+    detection_action_ids: tuple[str, ...] = ()
+    awareness_levels: tuple[str, ...] = ("unaware", "suspected", "searching", "detected")
+    detected_level: str = "detected"
+    unaware_level: str = "unaware"
+    visible_levels: tuple[str, ...] = ()
+    sensory_bypass_tags: dict[str, tuple[str, ...]] = Field(default_factory=dict)
+    sync_hidden_condition_on_detect: bool = False
+    noisy_action_tags: tuple[str, ...] = ()
+
+
+class TheftPillarConfig(BaseModel):
+    """Ruleset bindings for item theft, evidence planting, lockpicking & delayed notice."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    steal_action_ids: tuple[str, ...] = ()
+    plant_action_ids: tuple[str, ...] = ()
+    lockpick_action_ids: tuple[str, ...] = ()
+    stolen_tag: str = "stolen"
+    planted_tag: str = "planted"
+    contraband_tag: str = "contraband"
+    default_notice_delay_turns: int | None = Field(default=None, ge=1)
+
+
+class DisguisePillarConfig(BaseModel):
+    """Ruleset bindings for masked personas, disguise quality & scrutiny checks."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    disguise_action_ids: tuple[str, ...] = ()
+    scrutiny_action_ids: tuple[str, ...] = ()
+    disguised_condition_ids: tuple[str, ...] = ()
+    requires_voice_modulation_for_speech: bool = False
+    default_don_duration_seconds: int | None = Field(default=None, ge=0)
+    default_doff_duration_seconds: int | None = Field(default=None, ge=0)
+    source_don_durations_seconds: dict[str, int] = Field(default_factory=dict)
+
+
+class CovertOpsConfigBlock(BaseModel):
+    """Granular 3-pillar covert bindings interpreting ruleset mechanics (ADR-0134)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    stealth: StealthPillarConfig | None = None
+    theft: TheftPillarConfig | None = None
+    disguise: DisguisePillarConfig | None = None
+
+    def active_pillars(self) -> tuple[CovertPillar, ...]:
+        """Return tuple of ruleset-declared covert pillars (empty when dormant)."""
+        pillars: list[CovertPillar] = []
+        if self.stealth is not None:
+            pillars.append("stealth")
+        if self.theft is not None:
+            pillars.append("theft")
+        if self.disguise is not None:
+            pillars.append("disguise")
+        return tuple(pillars)
+
+
 class RulesetSchema(BaseModel):
     """Top-level declarative schema compiled from .rpgrules or authoring studios."""
 
@@ -268,6 +343,7 @@ class RulesetSchema(BaseModel):
     decks: dict[str, DeckSpec] = Field(default_factory=dict)
     forms: dict[str, FormBlock] = Field(default_factory=dict)
     flow_config: FlowConfig = Field(default_factory=FlowConfig)
+    covert_ops: CovertOpsConfigBlock | None = None
 
     def content_hash(self) -> str:
         """Compute canonical SHA-256 digest of this ruleset schema."""
@@ -438,10 +514,78 @@ class RulesetSchema(BaseModel):
                             f"Form '{form_id}' pool '{pool_key}' max_formula: {exc.message}"
                         )
 
+        if self.covert_ops is not None:
+            if self.covert_ops.stealth is not None:
+                st_cfg = self.covert_ops.stealth
+                for aid in (*st_cfg.hide_action_ids, *st_cfg.detection_action_ids):
+                    if aid not in self.actions:
+                        errors.append(f"CovertOps stealth references unknown action '{aid}'")
+                for cid in st_cfg.hidden_condition_ids:
+                    if cid not in self.conditions:
+                        errors.append(f"CovertOps stealth references unknown condition '{cid}'")
+                if st_cfg.detected_level not in st_cfg.awareness_levels:
+                    errors.append(
+                        f"CovertOps stealth detected_level '{st_cfg.detected_level}' "
+                        "is missing from awareness_levels"
+                    )
+                if st_cfg.unaware_level not in st_cfg.awareness_levels:
+                    errors.append(
+                        f"CovertOps stealth unaware_level '{st_cfg.unaware_level}' "
+                        "is missing from awareness_levels"
+                    )
+                for lvl in st_cfg.visible_levels:
+                    if lvl not in st_cfg.awareness_levels:
+                        errors.append(
+                            f"CovertOps stealth visible_levels entry '{lvl}' "
+                            "is missing from awareness_levels"
+                        )
+                for cond_id in st_cfg.sensory_bypass_tags:
+                    if cond_id not in self.conditions:
+                        errors.append(
+                            f"CovertOps sensory_bypass_tags references unknown '{cond_id}'"
+                        )
+            if self.covert_ops.theft is not None:
+                th_cfg = self.covert_ops.theft
+                for aid in (
+                    *th_cfg.steal_action_ids,
+                    *th_cfg.plant_action_ids,
+                    *th_cfg.lockpick_action_ids,
+                ):
+                    if aid not in self.actions:
+                        errors.append(f"CovertOps theft references unknown action '{aid}'")
+            if self.covert_ops.disguise is not None:
+                dg_cfg = self.covert_ops.disguise
+                for aid in (*dg_cfg.disguise_action_ids, *dg_cfg.scrutiny_action_ids):
+                    if aid not in self.actions:
+                        errors.append(f"CovertOps disguise references unknown action '{aid}'")
+                for cid in dg_cfg.disguised_condition_ids:
+                    if cid not in self.conditions:
+                        errors.append(f"CovertOps disguise references unknown condition '{cid}'")
+                valid_sources = {"apparel", "kit", "form", "magical", "digital"}
+                for src, dur in dg_cfg.source_don_durations_seconds.items():
+                    if src not in valid_sources:
+                        errors.append(
+                            f"CovertOps source_don_durations_seconds unknown source '{src}'"
+                        )
+                    if dur < 0:
+                        errors.append(
+                            f"CovertOps disguise duration for '{src}' must be >= 0 (got {dur})"
+                        )
+
         return errors
 
     def _validate_effect(self, effect: EffectSpec, owner: str, errors: list[str]) -> None:
-        if effect.kind not in {"emit_message", "shift_form", "revert_form"}:
+        non_formula_effects = {
+            "emit_message",
+            "shift_form",
+            "revert_form",
+            "set_awareness",
+            "apply_disguise",
+            "reveal_disguise",
+            "transfer_item",
+            "mark_provenance",
+        }
+        if effect.kind not in non_formula_effects:
             try:
                 parse_formula(effect.formula)
             except FormulaError as exc:
@@ -454,3 +598,10 @@ class RulesetSchema(BaseModel):
             and effect.target_key not in self.forms
         ):
             errors.append(f"{owner} revert_form references unknown form '{effect.target_key}'")
+        elif (
+            effect.kind == "set_awareness"
+            and self.covert_ops is not None
+            and self.covert_ops.stealth is not None
+            and effect.target_key not in self.covert_ops.stealth.awareness_levels
+        ):
+            errors.append(f"{owner} set_awareness references unknown level '{effect.target_key}'")

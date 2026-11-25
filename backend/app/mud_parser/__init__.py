@@ -56,11 +56,13 @@ from app.mud_parser.diegetic_languages import (
 )
 from app.mud_parser.social_dsl import (
     BUILTIN_MEDIUM_VERBS,
+    COVERT_VERBS,
     INVENTORY_VERBS,
     META_VERBS,
     MOVEMENT_VERBS,
     OBSERVATION_VERBS,
     ROLL_VERBS,
+    TIME_VERBS,
     VM_ACTION_VERBS,
     MudCommandCategory,
     ParsedMudCommand,
@@ -97,11 +99,13 @@ from app.mud_parser.social_emote_library import (
 __all__ = [
     "BUILTIN_EMOTES",
     "BUILTIN_MEDIUM_VERBS",
+    "COVERT_VERBS",
     "INVENTORY_VERBS",
     "META_VERBS",
     "MOVEMENT_VERBS",
     "OBSERVATION_VERBS",
     "ROLL_VERBS",
+    "TIME_VERBS",
     "TONE_VALENCE_MAP",
     "VM_ACTION_VERBS",
     "AudibilityMode",

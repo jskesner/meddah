@@ -22,24 +22,30 @@ from app.mud_parser import (  # noqa: E402
 )
 from app.ruleset_vm import (  # noqa: E402
     AdvancementGraphSpec,
+    CovertOpsConfigBlock,
+    DisguisePreset,
     FormBlock,
     InventoryGraphState,
     PackageManifest,
     RulesetSchema,
+    TimeSkipProposal,
     VmEvent,
 )
 
 SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "advancement": AdvancementGraphSpec,
     "comms_medium": CommunicationMediumBlock,
+    "covert_ops": CovertOpsConfigBlock,
     "custom_command": CustomMudCommandBlock,
     "custom_emote": CustomEmoteBlock,
+    "disguise_preset": DisguisePreset,
     "event": VmEvent,
     "form": FormBlock,
     "inventory": InventoryGraphState,
     "language": LanguageBlock,
     "manifest": PackageManifest,
     "ruleset": RulesetSchema,
+    "time_skip": TimeSkipProposal,
 }
 
 

@@ -23,6 +23,8 @@ MudCommandCategory = Literal[
     "movement",
     "observation",
     "inventory",
+    "covert",
+    "time_control",
     "vm_action",
     "roll",
     "communication",
@@ -69,6 +71,8 @@ OBSERVATION_VERBS: frozenset[str] = frozenset({"look", "l", "examine", "ex", "se
 INVENTORY_VERBS: frozenset[str] = frozenset(
     {"inventory", "inv", "i", "equip", "unequip", "wear", "remove", "outfit", "take", "get", "drop"}
 )
+COVERT_VERBS: frozenset[str] = frozenset({"hide", "sneak", "steal", "plant", "disguise"})
+TIME_VERBS: frozenset[str] = frozenset({"timeskip", "wait"})
 ROLL_VERBS: frozenset[str] = frozenset({"roll", "flip", "coin"})
 VM_ACTION_VERBS: frozenset[str] = frozenset(
     {"use", "cast", "attack", "strike", "defend", "dodge", "dash", "assist"}
@@ -835,6 +839,31 @@ def parse_mud_command(
         return ParsedMudCommand(
             raw_input=raw_input,
             category="inventory",
+            verb=verb_raw,
+            args=tuple(tail.split()) if tail else (),
+            flags=tuple(flags),
+        )
+
+    if verb_raw in COVERT_VERBS:
+        arg_list = tail.split() if tail else []
+        target_tok: str | None = None
+        for a in arg_list:
+            if a.startswith("@") and len(a) > 1:
+                target_tok = a[1:]
+                break
+        return ParsedMudCommand(
+            raw_input=raw_input,
+            category="covert",
+            verb=verb_raw,
+            args=tuple(arg_list),
+            target_token=target_tok,
+            flags=tuple(flags),
+        )
+
+    if verb_raw in TIME_VERBS:
+        return ParsedMudCommand(
+            raw_input=raw_input,
+            category="time_control",
             verb=verb_raw,
             args=tuple(tail.split()) if tail else (),
             flags=tuple(flags),
