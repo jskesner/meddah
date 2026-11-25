@@ -354,6 +354,246 @@
       "title": "FlowConfig",
       "type": "object"
     },
+    "FormBlock": {
+      "additionalProperties": false,
+      "description": "Declarative alternate form, transformation, chassis, or shape-shift stat block.",
+      "properties": {
+        "action_mode": {
+          "default": "merge",
+          "enum": [
+            "merge",
+            "replace"
+          ],
+          "title": "Action Mode",
+          "type": "string"
+        },
+        "anatomy_topology_override": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anatomy Topology Override"
+        },
+        "blocked_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Blocked Tags",
+          "type": "array"
+        },
+        "default_duration_turns": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Duration Turns"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "form_id": {
+          "minLength": 1,
+          "title": "Form Id",
+          "type": "string"
+        },
+        "gear_handling": {
+          "default": "merge_into_form",
+          "enum": [
+            "merge_into_form",
+            "keep_worn",
+            "drop_to_room"
+          ],
+          "title": "Gear Handling",
+          "type": "string"
+        },
+        "granted_actions": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Actions",
+          "type": "array"
+        },
+        "granted_tags": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Granted Tags",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "pool_costs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Pool Costs",
+          "type": "object"
+        },
+        "pool_policies": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FormPoolSpec"
+          },
+          "title": "Pool Policies",
+          "type": "object"
+        },
+        "portrait_override_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Portrait Override Ref"
+        },
+        "property_deltas": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Property Deltas",
+          "type": "object"
+        },
+        "property_mode": {
+          "default": "replace_subset",
+          "enum": [
+            "replace_all",
+            "replace_subset",
+            "delta_overlay"
+          ],
+          "title": "Property Mode",
+          "type": "string"
+        },
+        "property_values": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Property Values",
+          "type": "object"
+        },
+        "requires": {
+          "default": "true",
+          "title": "Requires",
+          "type": "string"
+        },
+        "size_category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size Category"
+        },
+        "suppress_gear_auras": {
+          "default": true,
+          "title": "Suppress Gear Auras",
+          "type": "boolean"
+        },
+        "token_override_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Token Override Ref"
+        }
+      },
+      "required": [
+        "form_id",
+        "label"
+      ],
+      "title": "FormBlock",
+      "type": "object"
+    },
+    "FormPoolSpec": {
+      "additionalProperties": false,
+      "description": "Per-pool policy governing how a ResourcePool behaves while transformed into a form.",
+      "properties": {
+        "auto_revert_on_zero": {
+          "default": true,
+          "title": "Auto Revert On Zero",
+          "type": "boolean"
+        },
+        "initial_formula": {
+          "default": "0",
+          "title": "Initial Formula",
+          "type": "string"
+        },
+        "max_formula": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Formula"
+        },
+        "mode": {
+          "default": "separate_form_pool",
+          "enum": [
+            "separate_form_pool",
+            "shared_base_pool",
+            "temp_bonus_pool"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "overflow_to_base": {
+          "default": true,
+          "title": "Overflow To Base",
+          "type": "boolean"
+        }
+      },
+      "title": "FormPoolSpec",
+      "type": "object"
+    },
     "OutcomeTier": {
       "additionalProperties": false,
       "description": "Ordered outcome predicate and resulting effects for a resolution mechanic.",
@@ -909,6 +1149,13 @@
     },
     "flow_config": {
       "$ref": "#/$defs/FlowConfig"
+    },
+    "forms": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FormBlock"
+      },
+      "title": "Forms",
+      "type": "object"
     },
     "manifest": {
       "$ref": "#/$defs/PackageManifest"
