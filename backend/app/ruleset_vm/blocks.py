@@ -72,11 +72,14 @@ class EffectSpec(BaseModel):
         "remove_condition",
         "advance_clock",
         "emit_message",
+        "shift_form",
+        "revert_form",
     ]
     target_scope: Literal["self", "target", "scene"] = "target"
     target_key: str = ""
     formula: str = "0"
     duration_turns: int | None = Field(default=None, ge=1)
+    forced: bool = False
 
 
 class OutcomeTier(BaseModel):
@@ -438,8 +441,16 @@ class RulesetSchema(BaseModel):
         return errors
 
     def _validate_effect(self, effect: EffectSpec, owner: str, errors: list[str]) -> None:
-        if effect.kind != "emit_message":
+        if effect.kind not in {"emit_message", "shift_form", "revert_form"}:
             try:
                 parse_formula(effect.formula)
             except FormulaError as exc:
                 errors.append(f"{owner} effect formula '{effect.target_key}': {exc.message}")
+        if effect.kind == "shift_form" and effect.target_key not in self.forms:
+            errors.append(f"{owner} shift_form references unknown form '{effect.target_key}'")
+        elif (
+            effect.kind == "revert_form"
+            and effect.target_key
+            and effect.target_key not in self.forms
+        ):
+            errors.append(f"{owner} revert_form references unknown form '{effect.target_key}'")

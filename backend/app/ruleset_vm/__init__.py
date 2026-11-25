@@ -151,6 +151,7 @@ from app.ruleset_vm.reaction_window import (
 )
 from app.ruleset_vm.rng import DeterministicRngStream, RngStreamState, SceneRngRegistry
 from app.ruleset_vm.vm import (
+    DEFAULT_MAX_HOOK_DEPTH,
     ActionResolutionResult,
     ActiveCondition,
     ActiveFormState,
@@ -161,18 +162,21 @@ from app.ruleset_vm.vm import (
     VmEventType,
     apply_event,
     apply_sheet_override,
+    build_active_form_state,
     compute_entity_view,
     execute_action,
     initialize_scene_state,
     replay_events,
     resolve_pending_reaction,
     state_hash,
+    trigger_event_hooks,
 )
 
 __all__ = [
     "CLASSIC_TABLETOP_PROFILE",
     "DEFAULT_BODY_LOCATIONS",
     "DEFAULT_MAX_DEPTH",
+    "DEFAULT_MAX_HOOK_DEPTH",
     "DEFAULT_MAX_OPERATIONS",
     "DEFAULT_MAX_WALL_MS",
     "DEFAULT_WEARABLE_LAYERS",
@@ -277,6 +281,7 @@ __all__ = [
     "apply_standard_array",
     "apply_tier_up",
     "assign_rolled_attributes",
+    "build_active_form_state",
     "can_shift_into_form",
     "check_tier_up_eligible",
     "complete_diegetic_training",
@@ -323,6 +328,7 @@ __all__ = [
     "total_abstract_load",
     "total_carried_slots",
     "total_carried_weight",
+    "trigger_event_hooks",
     "unequip_node",
     "wear_item",
 ]

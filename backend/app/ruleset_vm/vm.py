@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.ruleset_vm.ast_evaluator import FormulaError, ScalarValue, evaluate_formula
 from app.ruleset_vm.blocks import (
     EffectSpec,
+    FormBlock,
     FormPoolSpec,
     GearHandlingMode,
     OutcomeTier,
@@ -26,6 +27,8 @@ from app.ruleset_vm.reaction_window import (
     submit_reaction_response,
 )
 from app.ruleset_vm.rng import RngStreamState, SceneRngRegistry
+
+DEFAULT_MAX_HOOK_DEPTH = 4
 
 
 class ActiveCondition(BaseModel):
@@ -48,6 +51,8 @@ class ActiveFormState(BaseModel):
     form_pool_maxes: dict[str, int] = Field(default_factory=dict)
     gear_handling: GearHandlingMode = "merge_into_form"
     previous_form_id: str | None = None
+    involuntary: bool = False
+    source_entity_id: str | None = None
 
 
 class EntityState(BaseModel):
@@ -81,6 +86,7 @@ class ComputedEntityView(BaseModel):
     tags: tuple[str, ...]
     blocked_tags: tuple[str, ...]
     active_form_id: str | None = None
+    active_form_involuntary: bool = False
     granted_actions: tuple[str, ...] = ()
 
     def to_eval_context(self) -> dict[str, object]:
@@ -94,6 +100,7 @@ class ComputedEntityView(BaseModel):
             "tags": list(self.tags),
             "blocked_tags": list(self.blocked_tags),
             "active_form_id": self.active_form_id,
+            "active_form_involuntary": self.active_form_involuntary,
             "granted_actions": list(self.granted_actions),
         }
         for prop_key, prop_val in self.properties.items():
@@ -224,6 +231,11 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
     effective_form_id = (
         active_form.form_id if (form_def is not None and active_form is not None) else None
     )
+    active_form_involuntary = (
+        bool(active_form.involuntary)
+        if (form_def is not None and active_form is not None)
+        else False
+    )
 
     def _build_ctx(cur_props: dict[str, ScalarValue]) -> dict[str, object]:
         ctx: dict[str, object] = {
@@ -233,6 +245,7 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
             "conditions": list(cond_ids),
             "tags": list(merged_tags),
             "active_form_id": effective_form_id,
+            "active_form_involuntary": active_form_involuntary,
         }
         ctx.update(cur_props)
         for pool_k, pool_v in eff_pools.items():
@@ -332,7 +345,63 @@ def compute_entity_view(ruleset: RulesetSchema, entity: EntityState) -> Computed
         tags=merged_tags,
         blocked_tags=tuple(sorted(blocked_tags)),
         active_form_id=effective_form_id,
+        active_form_involuntary=active_form_involuntary,
         granted_actions=eff_actions,
+    )
+
+
+def build_active_form_state(
+    ruleset: RulesetSchema,
+    entity: EntityState,
+    form: FormBlock,
+    *,
+    duration_override: int | None = None,
+    involuntary: bool = False,
+    source_entity_id: str | None = None,
+) -> ActiveFormState:
+    """Build ActiveFormState by evaluating pool policies against unshifted base state."""
+    base_view = compute_entity_view(ruleset, entity.model_copy(update={"active_form": None}))
+    form_eval_ctx: dict[str, object] = {"@self": base_view.to_eval_context()}
+
+    form_pools: dict[str, int] = {}
+    form_pool_maxes: dict[str, int] = {}
+    for pool_id, policy in sorted(form.pool_policies.items()):
+        if policy.mode == "shared_base_pool":
+            continue
+        init_val = max(
+            0,
+            _as_int_value(
+                evaluate_formula(policy.initial_formula, form_eval_ctx),
+                f"form_pool:{pool_id}",
+            ),
+        )
+        if policy.max_formula is not None:
+            max_val = max(
+                0,
+                _as_int_value(
+                    evaluate_formula(policy.max_formula, form_eval_ctx),
+                    f"form_pool_max:{pool_id}",
+                ),
+            )
+            init_val = min(init_val, max_val)
+            form_pool_maxes[pool_id] = max_val
+        elif policy.mode in {"separate_form_pool", "temp_bonus_pool"}:
+            form_pool_maxes[pool_id] = init_val
+        form_pools[pool_id] = init_val
+
+    previous_form_id = entity.active_form.form_id if entity.active_form else None
+    remaining_turns = (
+        duration_override if duration_override is not None else form.default_duration_turns
+    )
+    return ActiveFormState(
+        form_id=form.form_id,
+        remaining_turns=remaining_turns,
+        form_pools=form_pools,
+        form_pool_maxes=form_pool_maxes,
+        gear_handling=form.gear_handling,
+        previous_form_id=previous_form_id,
+        involuntary=involuntary,
+        source_entity_id=source_entity_id,
     )
 
 
@@ -670,22 +739,81 @@ def _apply_base_pool_delta(
     return apply_event(ruleset, state, evt)
 
 
+def _emit_form_revert_event(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    *,
+    scope_entity_id: str,
+    form_id: str,
+    reason: str,
+    forced: bool,
+    actor_id: str,
+    pending_events: list[VmEvent],
+) -> SceneState:
+    rev_evt = VmEvent(
+        event_id=_next_event_id(state, 0),
+        event_type="FORM_CHANGED",
+        actor_id=actor_id,
+        payload={
+            "entity_id": scope_entity_id,
+            "op": "revert",
+            "form_id": form_id,
+            "reason": reason,
+            "forced": forced,
+        },
+    )
+    pending_events.append(rev_evt)
+    return apply_event(ruleset, state, rev_evt)
+
+
+def _fire_form_reverted_hooks(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    *,
+    scope_entity_id: str,
+    prev_form: ActiveFormState,
+    reason: str,
+    forced: bool,
+    emitted: list[VmEvent],
+    hook_depth: int,
+) -> SceneState:
+    return _fire_event_hooks(
+        ruleset,
+        state,
+        event_name="on_form_reverted",
+        actor_id=scope_entity_id,
+        target_id=None,
+        event_data={
+            "entity_id": scope_entity_id,
+            "form_id": prev_form.form_id,
+            "reason": reason,
+            "forced": forced,
+            "was_involuntary": prev_form.involuntary,
+            "source_entity_id": prev_form.source_entity_id,
+        },
+        emitted=emitted,
+        hook_depth=hook_depth,
+    )
+
+
 def _resolve_effect_events(
     ruleset: RulesetSchema,
     state: SceneState,
     effect: EffectSpec,
     *,
-    actor_id: str,
+    actor_id: str | None,
     target_id: str | None,
     eval_ctx: dict[str, object],
     pending_events: list[VmEvent],
+    hook_depth: int = 0,
 ) -> SceneState:
     """Compile a declarative EffectSpec into deterministic VmEvents and apply them."""
     scope_entity_id: str | None = None
     if effect.target_scope == "self":
         scope_entity_id = actor_id
     elif effect.target_scope == "target":
-        scope_entity_id = target_id or actor_id
+        scope_entity_id = target_id if target_id is not None else actor_id
+    event_actor = actor_id or "system"
 
     if effect.kind == "modify_pool":
         if scope_entity_id is None or scope_entity_id not in state.entities:
@@ -711,7 +839,7 @@ def _resolve_effect_events(
                 form_evt = VmEvent(
                     event_id=_next_event_id(state, 0),
                     event_type="POOL_MODIFIED",
-                    actor_id=actor_id,
+                    actor_id=event_actor,
                     payload={
                         "entity_id": scope_entity_id,
                         "pool_id": effect.target_key,
@@ -723,20 +851,19 @@ def _resolve_effect_events(
                 pending_events.append(form_evt)
                 cur_state = apply_event(ruleset, state, form_evt)
 
+                reverted_form: ActiveFormState | None = None
                 if raw_after <= 0 and delta < 0 and policy.auto_revert_on_zero:
-                    rev_evt = VmEvent(
-                        event_id=_next_event_id(cur_state, 0),
-                        event_type="FORM_CHANGED",
-                        actor_id=actor_id,
-                        payload={
-                            "entity_id": scope_entity_id,
-                            "op": "revert",
-                            "form_id": ent.active_form.form_id,
-                            "reason": "form_pool_depleted",
-                        },
+                    reverted_form = ent.active_form
+                    cur_state = _emit_form_revert_event(
+                        ruleset,
+                        cur_state,
+                        scope_entity_id=scope_entity_id,
+                        form_id=reverted_form.form_id,
+                        reason="form_pool_depleted",
+                        forced=True,
+                        actor_id=event_actor,
+                        pending_events=pending_events,
                     )
-                    pending_events.append(rev_evt)
-                    cur_state = apply_event(ruleset, cur_state, rev_evt)
 
                 if raw_after < 0 and policy.overflow_to_base:
                     cur_state = _apply_base_pool_delta(
@@ -745,8 +872,20 @@ def _resolve_effect_events(
                         scope_entity_id=scope_entity_id,
                         pool_id=effect.target_key,
                         delta=raw_after,
-                        actor_id=actor_id,
+                        actor_id=event_actor,
                         pending_events=pending_events,
+                    )
+
+                if reverted_form is not None:
+                    cur_state = _fire_form_reverted_hooks(
+                        ruleset,
+                        cur_state,
+                        scope_entity_id=scope_entity_id,
+                        prev_form=reverted_form,
+                        reason="form_pool_depleted",
+                        forced=True,
+                        emitted=pending_events,
+                        hook_depth=hook_depth + 1,
                     )
                 return cur_state
 
@@ -754,6 +893,7 @@ def _resolve_effect_events(
                 cur_state = state
                 cur_bonus = ent.active_form.form_pools.get(effect.target_key, 0)
                 rem_delta = delta
+                reverted_form = None
                 if cur_bonus > 0:
                     absorbed = min(cur_bonus, abs(delta))
                     new_bonus = cur_bonus - absorbed
@@ -761,7 +901,7 @@ def _resolve_effect_events(
                     bonus_evt = VmEvent(
                         event_id=_next_event_id(cur_state, 0),
                         event_type="POOL_MODIFIED",
-                        actor_id=actor_id,
+                        actor_id=event_actor,
                         payload={
                             "entity_id": scope_entity_id,
                             "pool_id": effect.target_key,
@@ -773,19 +913,17 @@ def _resolve_effect_events(
                     pending_events.append(bonus_evt)
                     cur_state = apply_event(ruleset, cur_state, bonus_evt)
                     if new_bonus <= 0 and policy.auto_revert_on_zero:
-                        rev_evt = VmEvent(
-                            event_id=_next_event_id(cur_state, 0),
-                            event_type="FORM_CHANGED",
-                            actor_id=actor_id,
-                            payload={
-                                "entity_id": scope_entity_id,
-                                "op": "revert",
-                                "form_id": ent.active_form.form_id,
-                                "reason": "form_pool_depleted",
-                            },
+                        reverted_form = ent.active_form
+                        cur_state = _emit_form_revert_event(
+                            ruleset,
+                            cur_state,
+                            scope_entity_id=scope_entity_id,
+                            form_id=reverted_form.form_id,
+                            reason="form_pool_depleted",
+                            forced=True,
+                            actor_id=event_actor,
+                            pending_events=pending_events,
                         )
-                        pending_events.append(rev_evt)
-                        cur_state = apply_event(ruleset, cur_state, rev_evt)
                 if rem_delta < 0 and policy.overflow_to_base:
                     cur_state = _apply_base_pool_delta(
                         ruleset,
@@ -793,8 +931,19 @@ def _resolve_effect_events(
                         scope_entity_id=scope_entity_id,
                         pool_id=effect.target_key,
                         delta=rem_delta,
-                        actor_id=actor_id,
+                        actor_id=event_actor,
                         pending_events=pending_events,
+                    )
+                if reverted_form is not None:
+                    cur_state = _fire_form_reverted_hooks(
+                        ruleset,
+                        cur_state,
+                        scope_entity_id=scope_entity_id,
+                        prev_form=reverted_form,
+                        reason="form_pool_depleted",
+                        forced=True,
+                        emitted=pending_events,
+                        hook_depth=hook_depth + 1,
                     )
                 return cur_state
 
@@ -804,7 +953,7 @@ def _resolve_effect_events(
             scope_entity_id=scope_entity_id,
             pool_id=effect.target_key,
             delta=delta,
-            actor_id=actor_id,
+            actor_id=event_actor,
             pending_events=pending_events,
         )
 
@@ -815,7 +964,7 @@ def _resolve_effect_events(
         evt = VmEvent(
             event_id=_next_event_id(state, 0),
             event_type="PROPERTY_SET",
-            actor_id=actor_id,
+            actor_id=event_actor,
             payload={
                 "entity_id": scope_entity_id,
                 "prop_id": effect.target_key,
@@ -838,7 +987,7 @@ def _resolve_effect_events(
         evt = VmEvent(
             event_id=_next_event_id(state, 0),
             event_type="CONDITION_CHANGED",
-            actor_id=actor_id,
+            actor_id=event_actor,
             payload={
                 "entity_id": scope_entity_id,
                 "op": op,
@@ -847,7 +996,110 @@ def _resolve_effect_events(
             },
         )
         pending_events.append(evt)
-        return apply_event(ruleset, state, evt)
+        cur_state = apply_event(ruleset, state, evt)
+        return _fire_event_hooks(
+            ruleset,
+            cur_state,
+            event_name="on_condition_changed",
+            actor_id=scope_entity_id,
+            target_id=None,
+            event_data={
+                "entity_id": scope_entity_id,
+                "op": op,
+                "condition_id": effect.target_key,
+                "duration_turns": duration,
+                "source_entity_id": actor_id,
+            },
+            emitted=pending_events,
+            hook_depth=hook_depth + 1,
+        )
+
+    if effect.kind == "shift_form":
+        if scope_entity_id is None or scope_entity_id not in state.entities:
+            return state
+        form = ruleset.forms.get(effect.target_key)
+        if form is None:
+            return state
+        target_ent = state.entities[scope_entity_id]
+        if not effect.forced:
+            target_view = compute_entity_view(ruleset, target_ent)
+            if not bool(evaluate_formula(form.requires, {"@self": target_view.to_eval_context()})):
+                return state
+        prev_form_id = target_ent.active_form.form_id if target_ent.active_form else None
+        next_form = build_active_form_state(
+            ruleset,
+            target_ent,
+            form,
+            duration_override=effect.duration_turns,
+            involuntary=effect.forced,
+            source_entity_id=actor_id,
+        )
+        shift_evt = VmEvent(
+            event_id=_next_event_id(state, 0),
+            event_type="FORM_CHANGED",
+            actor_id=event_actor,
+            payload={
+                "entity_id": scope_entity_id,
+                "op": "shift",
+                "form_id": form.form_id,
+                "previous_form_id": prev_form_id,
+                "gear_handling": form.gear_handling,
+                "involuntary": effect.forced,
+                "source_entity_id": actor_id,
+                "active_form": next_form.model_dump(mode="json"),
+            },
+        )
+        pending_events.append(shift_evt)
+        cur_state = apply_event(ruleset, state, shift_evt)
+        return _fire_event_hooks(
+            ruleset,
+            cur_state,
+            event_name="on_form_entered",
+            actor_id=scope_entity_id,
+            target_id=None,
+            event_data={
+                "entity_id": scope_entity_id,
+                "form_id": form.form_id,
+                "previous_form_id": prev_form_id,
+                "involuntary": effect.forced,
+                "source_entity_id": actor_id,
+            },
+            emitted=pending_events,
+            hook_depth=hook_depth + 1,
+        )
+
+    if effect.kind == "revert_form":
+        if scope_entity_id is None or scope_entity_id not in state.entities:
+            return state
+        target_ent = state.entities[scope_entity_id]
+        if target_ent.active_form is None:
+            return state
+        prev_form = target_ent.active_form
+        if effect.target_key and prev_form.form_id != effect.target_key:
+            return state
+        if prev_form.involuntary and not effect.forced:
+            return state
+        reason = effect.formula if effect.formula and effect.formula != "0" else "effect_revert"
+        cur_state = _emit_form_revert_event(
+            ruleset,
+            state,
+            scope_entity_id=scope_entity_id,
+            form_id=prev_form.form_id,
+            reason=reason,
+            forced=effect.forced,
+            actor_id=event_actor,
+            pending_events=pending_events,
+        )
+        return _fire_form_reverted_hooks(
+            ruleset,
+            cur_state,
+            scope_entity_id=scope_entity_id,
+            prev_form=prev_form,
+            reason=reason,
+            forced=effect.forced,
+            emitted=pending_events,
+            hook_depth=hook_depth + 1,
+        )
 
     if effect.kind == "advance_clock":
         delta = _as_int_value(evaluate_formula(effect.formula, eval_ctx), "clock delta")
@@ -855,7 +1107,7 @@ def _resolve_effect_events(
         evt = VmEvent(
             event_id=_next_event_id(state, 0),
             event_type="CLOCK_ADVANCED",
-            actor_id=actor_id,
+            actor_id=event_actor,
             payload={
                 "clock_id": effect.target_key,
                 "delta": delta,
@@ -868,7 +1120,7 @@ def _resolve_effect_events(
     evt = VmEvent(
         event_id=_next_event_id(state, 0),
         event_type="MESSAGE_EMITTED",
-        actor_id=actor_id,
+        actor_id=event_actor,
         payload={"message": effect.formula},
     )
     pending_events.append(evt)
@@ -880,26 +1132,33 @@ def _fire_event_hooks(
     state: SceneState,
     *,
     event_name: str,
-    actor_id: str,
+    actor_id: str | None,
     target_id: str | None,
-    event_data: dict[str, object],
+    event_data: Mapping[str, object],
     emitted: list[VmEvent],
+    hook_depth: int = 0,
 ) -> SceneState:
+    if hook_depth > DEFAULT_MAX_HOOK_DEPTH:
+        return state
     cur_state = state
     for hook_id in sorted(ruleset.event_hooks):
         hook = ruleset.event_hooks[hook_id]
         if hook.event_name != event_name:
             continue
-        actor_view = compute_entity_view(ruleset, cur_state.entities[actor_id])
+        actor_view = (
+            compute_entity_view(ruleset, cur_state.entities[actor_id])
+            if actor_id is not None and actor_id in cur_state.entities
+            else None
+        )
         target_view = (
             compute_entity_view(ruleset, cur_state.entities[target_id])
-            if target_id and target_id in cur_state.entities
+            if target_id is not None and target_id in cur_state.entities
             else None
         )
         ctx: dict[str, object] = {
-            "@self": actor_view.to_eval_context(),
-            "@target": target_view.to_eval_context() if target_view else None,
-            "@event": event_data,
+            "@self": actor_view.to_eval_context() if actor_view is not None else None,
+            "@target": target_view.to_eval_context() if target_view is not None else None,
+            "@event": dict(event_data),
         }
         if bool(evaluate_formula(hook.condition, ctx)):
             for eff in hook.effects:
@@ -911,8 +1170,57 @@ def _fire_event_hooks(
                     target_id=target_id,
                     eval_ctx=ctx,
                     pending_events=emitted,
+                    hook_depth=hook_depth,
                 )
     return cur_state
+
+
+def trigger_event_hooks(
+    ruleset: RulesetSchema,
+    state: SceneState,
+    *,
+    event_name: str,
+    actor_id: str | None = None,
+    target_id: str | None = None,
+    event_data: Mapping[str, object] | None = None,
+    broadcast_to_entities: bool = False,
+) -> tuple[SceneState, tuple[VmEvent, ...]]:
+    """Dispatch declarative EventHookBlocks for scene or entity lifecycle events."""
+    if broadcast_to_entities and actor_id is not None:
+        raise ValueError("broadcast_to_entities=True cannot be combined with an explicit actor_id.")
+    if actor_id is not None and actor_id not in state.entities:
+        raise KeyError(f"Unknown actor entity '{actor_id}'")
+    if target_id is not None and target_id not in state.entities:
+        raise KeyError(f"Unknown target entity '{target_id}'")
+
+    data = dict(event_data or {})
+    emitted: list[VmEvent] = []
+    cur_state = state
+
+    if broadcast_to_entities:
+        for eid in sorted(state.entities):
+            cur_state = _fire_event_hooks(
+                ruleset,
+                cur_state,
+                event_name=event_name,
+                actor_id=eid,
+                target_id=target_id,
+                event_data=data,
+                emitted=emitted,
+                hook_depth=0,
+            )
+    else:
+        cur_state = _fire_event_hooks(
+            ruleset,
+            cur_state,
+            event_name=event_name,
+            actor_id=actor_id,
+            target_id=target_id,
+            event_data=data,
+            emitted=emitted,
+            hook_depth=0,
+        )
+    return cur_state, tuple(emitted)
 
 
 def execute_action(

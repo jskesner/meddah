@@ -249,6 +249,11 @@
           "default": null,
           "title": "Duration Turns"
         },
+        "forced": {
+          "default": false,
+          "title": "Forced",
+          "type": "boolean"
+        },
         "formula": {
           "default": "0",
           "title": "Formula",
@@ -261,7 +266,9 @@
             "add_condition",
             "remove_condition",
             "advance_clock",
-            "emit_message"
+            "emit_message",
+            "shift_form",
+            "revert_form"
           ],
           "title": "Kind",
           "type": "string"
