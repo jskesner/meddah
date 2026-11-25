@@ -11,7 +11,7 @@ phases:
   - id: P2
     name: Ruleset Ingestion Pipeline, 14-Domain Semantic Probes, AI Co-Designer & Diff Workbench Backend
     mvp: true
-    status: Planned
+    status: Done
     target_release: v0.2.0
     spec: ./docs/design/tech_spec_01_core_vm_and_ingestion.md
   - id: P2.5
@@ -111,11 +111,11 @@ phases:
 - [x] 7 Conformance Ruleset fixtures (`3 Showcase + 4 Conformance`) & `pytest -m zero_ai` suite passing.
 
 ### [P2] Phase 2: Ruleset Ingestion Pipeline, 14-Domain Semantic Probes, AI Co-Designer & Diff Workbench Backend
-- **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.2.0`
-- [ ] `backend/app/ingestion/`: Sandboxed PDF/Markdown/JSON/YAML/CSV extractors, SQLite FTS5 BM25 indexer, JIT block compiler.
-- [ ] `url_ingestor.py`: SSRF-protected single-URL & scoped multi-page discovery (`max_depth: 1..2`), interactive sub-page checklist, sequential `PoliteFetchPolicy`, and 3 graceful human-in-the-loop CAPTCHA recovery paths.
-- [ ] `lifecycle_probes.py` (14 probes with explicit `Null/Absent` guarantee + alternate-form/`FormBlock` & covert-ops/`CovertOpsConfigBlock` extraction), `ai_architect.py`, `balance_simulator.py`, and Staging Diff Workbench API.
-- [ ] Dual-track ingestion evaluation gates (`Tier A` deterministic + `Tier B` Ollama).
+- **Status**: `Done` | **MVP**: `Yes` | **Target Tag**: `v0.2.0`
+- [x] `backend/app/ingestion/`: Sandboxed PDF/Markdown/JSON/YAML/CSV extractors, SQLite FTS5 BM25 indexer, JIT block compiler.
+- [x] `url_ingestor.py`: SSRF-protected single-URL & scoped multi-page discovery (`max_depth: 1..2`), interactive sub-page checklist, sequential `PoliteFetchPolicy`, and 3 graceful human-in-the-loop CAPTCHA recovery paths.
+- [x] `lifecycle_probes.py` (14 probes with explicit `Null/Absent` guarantee + alternate-form/`FormBlock` & covert-ops/`CovertOpsConfigBlock` extraction + checkpointed Tier-B micro-probes), `ai_architect.py` (5-step deterministic wizard, subsystem pattern injector, AST clause builder & scoped Tier-B co-designer), `balance_simulator.py` (probability curves, static/readiness linter & Monte Carlo TTK sandbox), and `diff_workbench.py` (staging review, preview/commit & hot-reload migration compatibility).
+- [x] Dual-track ingestion evaluation gates (`eval_harness.py`: `Tier A` 7-fixture deterministic corpus + `Tier B` Ollama micro-probe gate).
 
 ### [P2.5] Phase 2.5: Early Thin Playable Slice (Terminal CLI MUD & Headless Server Daemon)
 - **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.2.5`

@@ -48,4 +48,5 @@ markers = [
     "zero_ai: tests guaranteed to run deterministically with AI_PROVIDER=none and zero LLM calls",
     "perf: performance budget and latency benchmark tests",
     "conformance: golden-file scenario tests across the 7 conformance rulesets",
+    "tier_b_eval: evaluation tests verifying Tier-B micro-probe schemas, token budgets, and accuracy gates",
 ]

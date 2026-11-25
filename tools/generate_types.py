@@ -14,6 +14,10 @@ BACKEND_ROOT = REPO_ROOT / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from app.ingestion import (  # noqa: E402
+    IngestionStagingJob,
+    ProbeDomainResult,
+)
 from app.mud_parser import (  # noqa: E402
     CommunicationMediumBlock,
     CustomEmoteBlock,
@@ -44,7 +48,9 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "inventory": InventoryGraphState,
     "language": LanguageBlock,
     "manifest": PackageManifest,
+    "probe_result": ProbeDomainResult,
     "ruleset": RulesetSchema,
+    "staging_job": IngestionStagingJob,
     "time_skip": TimeSkipProposal,
 }
 
