@@ -1,0 +1,264 @@
+{
+  "$defs": {
+    "SourceCitation": {
+      "additionalProperties": false,
+      "description": "Exact source provenance attached to every extracted section, table, or proposal.",
+      "properties": {
+        "anchor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor"
+        },
+        "excerpt": {
+          "default": "",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "heading_path": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Heading Path",
+          "type": "array"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "source_kind": {
+          "enum": [
+            "markdown",
+            "txt",
+            "html",
+            "json",
+            "yaml",
+            "csv",
+            "pdf",
+            "rpgrules",
+            "url"
+          ],
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "source_name": {
+          "minLength": 1,
+          "title": "Source Name",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "source_name",
+        "source_kind"
+      ],
+      "title": "SourceCitation",
+      "type": "object"
+    },
+    "StagingBlockProposal": {
+      "additionalProperties": false,
+      "description": "Proposed VM building block staged for review in the Diff Workbench.",
+      "properties": {
+        "block_category": {
+          "enum": [
+            "manifest",
+            "property",
+            "resource_pool",
+            "resolution",
+            "condition",
+            "action",
+            "event_hook",
+            "deck",
+            "form",
+            "covert_ops",
+            "flow_config",
+            "compendium",
+            "rule_note"
+          ],
+          "title": "Block Category",
+          "type": "string"
+        },
+        "block_key": {
+          "minLength": 1,
+          "title": "Block Key",
+          "type": "string"
+        },
+        "confidence_score": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence Score",
+          "type": "number"
+        },
+        "decision": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "accepted",
+            "merged",
+            "edited",
+            "skipped"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "diff_status": {
+          "default": "NEW",
+          "enum": [
+            "NEW",
+            "MODIFIED",
+            "CONFLICT",
+            "UNCHANGED",
+            "NOT_FOUND_IN_SOURCE"
+          ],
+          "title": "Diff Status",
+          "type": "string"
+        },
+        "existing_payload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Existing Payload"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "proposal_id": {
+          "minLength": 1,
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "proposed_payload": {
+          "additionalProperties": true,
+          "title": "Proposed Payload",
+          "type": "object"
+        },
+        "source_citation": {
+          "$ref": "#/$defs/SourceCitation"
+        }
+      },
+      "required": [
+        "proposal_id",
+        "block_category",
+        "block_key",
+        "source_citation"
+      ],
+      "title": "StagingBlockProposal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Result record for one of the 14 semantic & lifecycle discovery probes.",
+  "properties": {
+    "citations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceCitation"
+      },
+      "title": "Citations",
+      "type": "array"
+    },
+    "confidence_score": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence Score",
+      "type": "number"
+    },
+    "declared_value": {
+      "default": "none",
+      "title": "Declared Value",
+      "type": "string"
+    },
+    "domain_id": {
+      "minLength": 1,
+      "title": "Domain Id",
+      "type": "string"
+    },
+    "extracted_primitives": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Extracted Primitives",
+      "type": "array"
+    },
+    "label": {
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "probe_number": {
+      "maximum": 14,
+      "minimum": 1,
+      "title": "Probe Number",
+      "type": "integer"
+    },
+    "proposals": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StagingBlockProposal"
+      },
+      "title": "Proposals",
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "found",
+        "partial",
+        "absent"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "summary": {
+      "default": "",
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "required": [
+    "probe_number",
+    "domain_id",
+    "label",
+    "status"
+  ],
+  "title": "ProbeDomainResult",
+  "type": "object"
+}

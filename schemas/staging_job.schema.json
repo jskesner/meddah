@@ -1,0 +1,742 @@
+{
+  "$defs": {
+    "CaptchaPauseReport": {
+      "additionalProperties": false,
+      "description": "Structured pause-in-place state when an anti-bot or CAPTCHA gate is detected.",
+      "properties": {
+        "challenge_vendor": {
+          "minLength": 1,
+          "title": "Challenge Vendor",
+          "type": "string"
+        },
+        "http_status": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Http Status"
+        },
+        "paused_url": {
+          "minLength": 1,
+          "title": "Paused Url",
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "recovery_options": {
+          "default": [
+            "browser_verification_window",
+            "manual_paste_or_file_drop",
+            "skip_page"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Recovery Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "paused_url",
+        "challenge_vendor",
+        "reason"
+      ],
+      "title": "CaptchaPauseReport",
+      "type": "object"
+    },
+    "DocumentSection": {
+      "additionalProperties": false,
+      "description": "Normalized hierarchical section extracted from an ingested rulebook document.",
+      "properties": {
+        "anchor": {
+          "default": "section",
+          "minLength": 1,
+          "title": "Anchor",
+          "type": "string"
+        },
+        "body": {
+          "default": "",
+          "title": "Body",
+          "type": "string"
+        },
+        "content_hash": {
+          "minLength": 1,
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "heading": {
+          "default": "",
+          "title": "Heading",
+          "type": "string"
+        },
+        "heading_path": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Heading Path",
+          "type": "array"
+        },
+        "level": {
+          "default": 1,
+          "maximum": 6,
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "section_id": {
+          "minLength": 1,
+          "title": "Section Id",
+          "type": "string"
+        },
+        "tables": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExtractedTable"
+          },
+          "title": "Tables",
+          "type": "array"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "section_id",
+        "content_hash"
+      ],
+      "title": "DocumentSection",
+      "type": "object"
+    },
+    "ExtractedTable": {
+      "additionalProperties": false,
+      "description": "Normalized structural table extracted from Markdown, CSV, HTML, or PDF sources.",
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/SourceCitation"
+        },
+        "headers": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "array"
+        },
+        "rows": {
+          "default": [],
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        },
+        "table_id": {
+          "minLength": 1,
+          "title": "Table Id",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "table_id",
+        "citation"
+      ],
+      "title": "ExtractedTable",
+      "type": "object"
+    },
+    "ParsedDocument": {
+      "additionalProperties": false,
+      "description": "Normalized multi-format Structural Document AST produced by document_parser.",
+      "properties": {
+        "content_hash": {
+          "minLength": 1,
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "doc_id": {
+          "minLength": 1,
+          "title": "Doc Id",
+          "type": "string"
+        },
+        "raw_text": {
+          "default": "",
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "sections": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DocumentSection"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "source_kind": {
+          "enum": [
+            "markdown",
+            "txt",
+            "html",
+            "json",
+            "yaml",
+            "csv",
+            "pdf",
+            "rpgrules",
+            "url"
+          ],
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "source_name": {
+          "minLength": 1,
+          "title": "Source Name",
+          "type": "string"
+        },
+        "tables": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ExtractedTable"
+          },
+          "title": "Tables",
+          "type": "array"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "warnings": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "doc_id",
+        "source_name",
+        "source_kind",
+        "content_hash"
+      ],
+      "title": "ParsedDocument",
+      "type": "object"
+    },
+    "ProbeDomainResult": {
+      "additionalProperties": false,
+      "description": "Result record for one of the 14 semantic & lifecycle discovery probes.",
+      "properties": {
+        "citations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/SourceCitation"
+          },
+          "title": "Citations",
+          "type": "array"
+        },
+        "confidence_score": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence Score",
+          "type": "number"
+        },
+        "declared_value": {
+          "default": "none",
+          "title": "Declared Value",
+          "type": "string"
+        },
+        "domain_id": {
+          "minLength": 1,
+          "title": "Domain Id",
+          "type": "string"
+        },
+        "extracted_primitives": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Extracted Primitives",
+          "type": "array"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "probe_number": {
+          "maximum": 14,
+          "minimum": 1,
+          "title": "Probe Number",
+          "type": "integer"
+        },
+        "proposals": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/StagingBlockProposal"
+          },
+          "title": "Proposals",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "found",
+            "partial",
+            "absent"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "probe_number",
+        "domain_id",
+        "label",
+        "status"
+      ],
+      "title": "ProbeDomainResult",
+      "type": "object"
+    },
+    "SourceCitation": {
+      "additionalProperties": false,
+      "description": "Exact source provenance attached to every extracted section, table, or proposal.",
+      "properties": {
+        "anchor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Anchor"
+        },
+        "excerpt": {
+          "default": "",
+          "title": "Excerpt",
+          "type": "string"
+        },
+        "heading_path": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Heading Path",
+          "type": "array"
+        },
+        "page_number": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Number"
+        },
+        "source_kind": {
+          "enum": [
+            "markdown",
+            "txt",
+            "html",
+            "json",
+            "yaml",
+            "csv",
+            "pdf",
+            "rpgrules",
+            "url"
+          ],
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "source_name": {
+          "minLength": 1,
+          "title": "Source Name",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "source_name",
+        "source_kind"
+      ],
+      "title": "SourceCitation",
+      "type": "object"
+    },
+    "StagingBlockProposal": {
+      "additionalProperties": false,
+      "description": "Proposed VM building block staged for review in the Diff Workbench.",
+      "properties": {
+        "block_category": {
+          "enum": [
+            "manifest",
+            "property",
+            "resource_pool",
+            "resolution",
+            "condition",
+            "action",
+            "event_hook",
+            "deck",
+            "form",
+            "covert_ops",
+            "flow_config",
+            "compendium",
+            "rule_note"
+          ],
+          "title": "Block Category",
+          "type": "string"
+        },
+        "block_key": {
+          "minLength": 1,
+          "title": "Block Key",
+          "type": "string"
+        },
+        "confidence_score": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence Score",
+          "type": "number"
+        },
+        "decision": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "accepted",
+            "merged",
+            "edited",
+            "skipped"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "diff_status": {
+          "default": "NEW",
+          "enum": [
+            "NEW",
+            "MODIFIED",
+            "CONFLICT",
+            "UNCHANGED",
+            "NOT_FOUND_IN_SOURCE"
+          ],
+          "title": "Diff Status",
+          "type": "string"
+        },
+        "existing_payload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Existing Payload"
+        },
+        "notes": {
+          "default": "",
+          "title": "Notes",
+          "type": "string"
+        },
+        "proposal_id": {
+          "minLength": 1,
+          "title": "Proposal Id",
+          "type": "string"
+        },
+        "proposed_payload": {
+          "additionalProperties": true,
+          "title": "Proposed Payload",
+          "type": "object"
+        },
+        "source_citation": {
+          "$ref": "#/$defs/SourceCitation"
+        }
+      },
+      "required": [
+        "proposal_id",
+        "block_category",
+        "block_key",
+        "source_citation"
+      ],
+      "title": "StagingBlockProposal",
+      "type": "object"
+    },
+    "SubpageFetchRecord": {
+      "additionalProperties": false,
+      "description": "Per-URL fetch state and conditional cache metadata in an IngestionStagingJob.",
+      "properties": {
+        "challenge_vendor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Challenge Vendor"
+        },
+        "chapter_group": {
+          "default": "root",
+          "title": "Chapter Group",
+          "type": "string"
+        },
+        "content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Hash"
+        },
+        "content_kind": {
+          "default": "html",
+          "enum": [
+            "html",
+            "markdown",
+            "txt",
+            "pdf"
+          ],
+          "title": "Content Kind",
+          "type": "string"
+        },
+        "error_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Message"
+        },
+        "etag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Etag"
+        },
+        "last_modified": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Modified"
+        },
+        "raw_content": {
+          "default": "",
+          "title": "Raw Content",
+          "type": "string"
+        },
+        "status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "fetched",
+            "not_modified",
+            "paused_captcha",
+            "manual_submitted",
+            "skipped",
+            "blocked_robots",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "SubpageFetchRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Persistent staging bundle reviewed in the Diff Workbench prior to ruleset commit.",
+  "properties": {
+    "captcha_pause": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CaptchaPauseReport"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "documents": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ParsedDocument"
+      },
+      "title": "Documents",
+      "type": "array"
+    },
+    "job_id": {
+      "minLength": 1,
+      "title": "Job Id",
+      "type": "string"
+    },
+    "probe_results": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ProbeDomainResult"
+      },
+      "title": "Probe Results",
+      "type": "array"
+    },
+    "proposals": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StagingBlockProposal"
+      },
+      "title": "Proposals",
+      "type": "array"
+    },
+    "source_kind": {
+      "enum": [
+        "markdown",
+        "txt",
+        "html",
+        "json",
+        "yaml",
+        "csv",
+        "pdf",
+        "rpgrules",
+        "url"
+      ],
+      "title": "Source Kind",
+      "type": "string"
+    },
+    "source_name": {
+      "minLength": 1,
+      "title": "Source Name",
+      "type": "string"
+    },
+    "status": {
+      "default": "staging",
+      "enum": [
+        "staging",
+        "ready_for_review",
+        "paused_captcha",
+        "committed",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "subpages": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SubpageFetchRecord"
+      },
+      "title": "Subpages",
+      "type": "array"
+    },
+    "warnings": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "job_id",
+    "source_name",
+    "source_kind"
+  ],
+  "title": "IngestionStagingJob",
+  "type": "object"
+}
