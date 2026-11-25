@@ -269,29 +269,33 @@ def test_reaction_window_action_execution_manual_override_and_replay() -> None:
     )
     assert overridden_state.entities["pc_1"].pools["stamina"] == 1
 
-    # 5. Verify condition tag gating blocks tagged actions
-    bound_state = apply_sheet_override(
+    # 5. Verify audited condition & tag overrides inside SHEET_OVERRIDE block/unblock actions
+    gated_scene, add_bound_evt = apply_sheet_override(
         rs,
         overridden_state,
         entity_id="pc_1",
+        add_conditions=("bound",),
+        add_tags=("disarmed",),
         actor_seat_id="gm",
-    )[0]
-    _ = bound_state
-    bound_actor = overridden_state.entities["pc_1"].model_copy(
-        update={
-            "conditions": {
-                "bound": overridden_state.entities["npc_1"]
-                .conditions["parrying"]
-                .model_copy(update={"condition_id": "bound"})
-            }
-        }
+        reason="Physical table bound & disarmed status",
     )
-    gated_scene = overridden_state.model_copy(
-        update={"entities": {**overridden_state.entities, "pc_1": bound_actor}}
-    )
+    assert "bound" in gated_scene.entities["pc_1"].conditions
+    assert "disarmed" in gated_scene.entities["pc_1"].tags
     with pytest.raises(PermissionError):
         execute_action(rs, gated_scene, "pc_1", "slash", target_id="npc_1")
 
-    full_events = [*paused.events, *completed.events, override_evt]
+    cleared_scene, clear_bound_evt = apply_sheet_override(
+        rs,
+        gated_scene,
+        entity_id="pc_1",
+        remove_conditions=("bound",),
+        remove_tags=("disarmed",),
+        actor_seat_id="gm",
+        reason="Cleared manual bound status",
+    )
+    assert "bound" not in cleared_scene.entities["pc_1"].conditions
+    assert "disarmed" not in cleared_scene.entities["pc_1"].tags
+
+    full_events = [*paused.events, *completed.events, override_evt, add_bound_evt, clear_bound_evt]
     replayed = replay_events(rs, initial, full_events)
-    assert state_hash(replayed) == state_hash(overridden_state)
+    assert state_hash(replayed) == state_hash(cleared_scene)

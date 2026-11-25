@@ -390,9 +390,39 @@ def apply_event(ruleset: RulesetSchema, state: SceneState, event: VmEvent) -> Sc
             pool_map = cast(Mapping[object, object], pool_overrides)
             for k, v in pool_map.items():
                 updated_pools[str(k)] = _as_int_value(v, f"pool_override:{k}")
+        updated_conds = dict(entity.conditions)
+        raw_add_conds = payload.get("add_conditions", {})
+        if isinstance(raw_add_conds, Mapping):
+            cond_map = cast(Mapping[object, object], raw_add_conds)
+            for cid_obj, dur_obj in cond_map.items():
+                cid = str(cid_obj)
+                dur = (
+                    int(dur_obj)
+                    if isinstance(dur_obj, int) and not isinstance(dur_obj, bool)
+                    else None
+                )
+                updated_conds[cid] = ActiveCondition(condition_id=cid, remaining_turns=dur)
+        raw_rem_conds = payload.get("remove_conditions", ())
+        if isinstance(raw_rem_conds, Sequence) and not isinstance(raw_rem_conds, str):
+            for cid_obj in cast(Sequence[object], raw_rem_conds):
+                updated_conds.pop(str(cid_obj), None)
+        updated_tags = set(entity.tags)
+        raw_add_tags = payload.get("add_tags", ())
+        if isinstance(raw_add_tags, Sequence) and not isinstance(raw_add_tags, str):
+            for tag_obj in cast(Sequence[object], raw_add_tags):
+                updated_tags.add(str(tag_obj))
+        raw_rem_tags = payload.get("remove_tags", ())
+        if isinstance(raw_rem_tags, Sequence) and not isinstance(raw_rem_tags, str):
+            for tag_obj in cast(Sequence[object], raw_rem_tags):
+                updated_tags.discard(str(tag_obj))
         updated_entities = dict(state.entities)
         updated_entities[entity_id] = entity.model_copy(
-            update={"base_properties": updated_props, "pools": updated_pools}
+            update={
+                "base_properties": updated_props,
+                "pools": updated_pools,
+                "conditions": updated_conds,
+                "tags": tuple(sorted(updated_tags)),
+            }
         )
         return state.model_copy(update={"entities": updated_entities, "event_seq": next_seq})
 
@@ -979,12 +1009,26 @@ def apply_sheet_override(
     entity_id: str,
     property_overrides: dict[str, ScalarValue] | None = None,
     pool_overrides: dict[str, int] | None = None,
+    add_conditions: Mapping[str, int | None] | Sequence[str] | None = None,
+    remove_conditions: Sequence[str] | None = None,
+    add_tags: Sequence[str] | None = None,
+    remove_tags: Sequence[str] | None = None,
     actor_seat_id: str,
     reason: str = "",
 ) -> tuple[SceneState, VmEvent]:
     """Commit an audited SHEET_OVERRIDE event for manual roll / direct-edit play modes."""
     if entity_id not in state.entities:
         raise KeyError(f"Unknown entity '{entity_id}'")
+    normalized_add_conds: dict[str, int | None] = {}
+    if isinstance(add_conditions, Mapping):
+        for cid, dur in add_conditions.items():
+            normalized_add_conds[cid] = dur
+    elif add_conditions is not None:
+        for cid in add_conditions:
+            cond_def = ruleset.conditions.get(cid)
+            normalized_add_conds[cid] = (
+                cond_def.default_duration_turns if cond_def is not None else None
+            )
     evt = VmEvent(
         event_id=_next_event_id(state, 0),
         event_type="SHEET_OVERRIDE",
@@ -993,6 +1037,10 @@ def apply_sheet_override(
             "entity_id": entity_id,
             "property_overrides": dict(property_overrides or {}),
             "pool_overrides": dict(pool_overrides or {}),
+            "add_conditions": normalized_add_conds,
+            "remove_conditions": list(remove_conditions or ()),
+            "add_tags": list(add_tags or ()),
+            "remove_tags": list(remove_tags or ()),
             "reason": reason,
         },
     )

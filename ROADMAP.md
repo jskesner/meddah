@@ -105,7 +105,7 @@ phases:
 
 ### [P1] Phase 1: Core Agnostic Ruleset VM, Module Registry, Layered Inventory, Creation/Advancement & MUD Parser
 - **Status**: `Done` | **MVP**: `Yes` | **Target Tag**: `v0.1.0`
-- [x] `backend/app/ruleset_vm/`: Safe AST evaluator (`0` eval/exec), named seeded RNG streams, flow controller (`freeform` / `round_initiative` / `popcorn_spotlight`), reaction & contested windows, universal `inventory_graph.py` (`abstract_slots` & `anatomical_layered`), `advancement.py` (5 creation + 5 progression paradigms).
+- [x] `backend/app/ruleset_vm/`: Safe AST evaluator (`0` eval/exec), named seeded RNG streams, flow controller (`freeform` / `round_initiative` / `popcorn_spotlight`), reaction & contested windows, universal `inventory_graph.py` (`abstract_slots` & `anatomical_layered`), `advancement.py` (5 creation + 5 progression paradigms), `forms.py` (`FormBlock` alternate forms & transformations), and audited property/pool/condition/tag `SHEET_OVERRIDE` (`vm.py`).
 - [x] `backend/app/ruleset_vm/module_registry.py` & `tools/lint_modularity.py` + `tools/lint_agnosticism.py`.
 - [x] `backend/app/mud_parser/`: `<5ms` deterministic lexer, `social_dsl.py`, 60+ 3-perspective social emotes, `custom_commands.py` (host custom commands/emotes & 4-step declarative `ECA` pipelines), `diegetic_comms.py`.
 - [x] 7 Conformance Ruleset fixtures (`3 Showcase + 4 Conformance`) & `pytest -m zero_ai` suite passing.
@@ -114,12 +114,12 @@ phases:
 - **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.2.0`
 - [ ] `backend/app/ingestion/`: Sandboxed PDF/Markdown/JSON/YAML/CSV extractors, SQLite FTS5 BM25 indexer, JIT block compiler.
 - [ ] `url_ingestor.py`: SSRF-protected single-URL & scoped multi-page discovery (`max_depth: 1..2`), interactive sub-page checklist, sequential `PoliteFetchPolicy`, and 3 graceful human-in-the-loop CAPTCHA recovery paths.
-- [ ] `lifecycle_probes.py` (14 probes with explicit `Null/Absent` guarantee), `ai_architect.py`, `balance_simulator.py`, and Staging Diff Workbench API.
+- [ ] `lifecycle_probes.py` (14 probes with explicit `Null/Absent` guarantee + alternate-form/`FormBlock` extraction), `ai_architect.py`, `balance_simulator.py`, and Staging Diff Workbench API.
 - [ ] Dual-track ingestion evaluation gates (`Tier A` deterministic + `Tier B` Ollama).
 
 ### [P2.5] Phase 2.5: Early Thin Playable Slice (Terminal CLI MUD & Headless Server Daemon)
 - **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.2.5`
-- [ ] `backend/app/cli/`: Interactive terminal client (`meddah attach`) & server management CLI (`meddah serve`, `campaign`, `session`, `seat`, `backup`, `ruleset`, `gpu-check`).
+- [ ] `backend/app/cli/`: Interactive terminal client (`meddah attach` — including manual-roll mode toggle, direct `SHEET_OVERRIDE` edits, and `form shift` / `form revert` commands) & server management CLI (`meddah serve`, `campaign`, `session`, `seat`, `backup`, `ruleset`, `gpu-check`).
 - [ ] `docker/Dockerfile.server` & `docker/docker-compose.server.yml` (NVIDIA/AMD ROCm/Vulkan/CPU profiles).
 - [ ] 30-minute interactive Zero-AI acceptance test across the 3 showcase rulesets.
 
@@ -135,7 +135,7 @@ phases:
 
 ### [P5] Phase 5: Host-Authoritative Multiplayer, Split-Party Engine, Content Safety & Multimodal Media Pipeline
 - **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.5.0`
-- [ ] `backend/app/multiplayer/`: WebSocket JSON-RPC gateway, orthogonal `is_server_admin` + seat RBAC, FoW filtering, Waiting Room, 1-click Tunnel, Split-Party concurrent room queues.
+- [ ] `backend/app/multiplayer/`: WebSocket JSON-RPC gateway, orthogonal `is_server_admin` + seat RBAC (including `can_direct_edit_sheet` and campaign-level `disable_player_facing_rolls`), FoW filtering, Waiting Room, 1-click Tunnel, Split-Party concurrent room queues.
 - [ ] `backend/app/safety/` (Content Rating, Lines & Veils, X-Card) & `backend/app/media/` + `gpu_resource_coordinator.py` (Procedural SVG/paper-doll default, Piper/Kokoro TTS/blip synth).
 
 ### [P6] Phase 6: Desktop Shell, Unified Web Client, Hypertext MUD, 2.5D VTT, Timepiece/LUT & Visual Studios
@@ -143,7 +143,7 @@ phases:
 - [ ] `desktop/` Electron + React + TypeScript + PixiJS shell & Unified Browser Web Client (`meddah serve --serve-web-client`), 6 Themes (with `timepiece_skin` & `time_of_day_lut`), WCAG 2.2 AA (`axe-core` gate).
 - [ ] Hypertext MUD terminal (Comms Pill Bar, channel tabs + FTS5 search, bookmarks, Chronicle Export, Pinned Hotbar, Remappable Keybindings, Workspace Presets, **`TimepieceWidget`**, Handouts/Journals/Codex Drawer, 5-step First-Run Onboarding Wizard).
 - [ ] Core Multi-Scale & 2.5D Tactical VTT (`TimeOfDayColorLUT`, live Scale Pill/Caliper, LoS, 3-state FoW, AoE stencils, Map Pings/GM Camera Pull, Annotations & Sticky Pins, Turn/Initiative Tracker Strip).
-- [ ] Dynamic Character Sheet, Layered Inventory/Apparel UI, 3-Mode Builder, Advancement Drawer, 4-Tab Capabilities Deck, **Visual Ruleset Studio GUI + Compendium & Custom Command Studios**, and **Unified World/Dungeon/NPC/Dialogue/Oracle/Linter Studio**.
+- [ ] Dynamic Character Sheet (with inline direct-sheet `SHEET_OVERRIDE` edit mode, table roll-bypass toggle, and Form Switcher Pill + portrait/token auto-swap), Layered Inventory/Apparel UI, 3-Mode Builder, Advancement Drawer, 4-Tab Capabilities Deck, **Visual Ruleset Studio GUI + Compendium & Custom Command Studios**, and **Unified World/Dungeon/NPC/Dialogue/Oracle/Linter Studio**.
 
 ---
 
@@ -152,7 +152,7 @@ phases:
 - **P7** (`v0.7.0`, `Planned`): Autonomous AI Companions (`ai_npc.py`), Tactical Obedience, Confrontations/Mutiny, Revival/Succession & 5-Category Permanent Retinue (`retinue_engine.py`).
 - **P8** (`v0.8.0`, `Planned`): Dual-Mode Overworld Travel, Megacities/Citadels, Geopolitics/Rebellions, Law/Witnesses/Capture & Context-Aware Random Encounters.
 - **P9** (`v0.9.0`, `Planned`): Rest/Camping & Downtime, Crafting & Optional Survival Mode (with Default-On Ruleset Hostile Environments), 5-Source Loot & `EntityLootConfigBlock`, **In-Game Commerce, Haggling & Atomic Player-to-Player Trading (`commerce_and_trade.py`)**, Modular Puzzles/Traps/Wavefronts, and Piety/Patrons/Dreams.
-- **P10** (`v0.10.0`, `Planned`): Unified Player Holdings/Strongholds & Pilotable Vessels, and 3-Topology Granular Hit Location, Medical Surgery & Prosthetic Engine (`hit_location_engine.py`).
+- **P10** (`v0.10.0`, `Planned`): Unified Player Holdings/Strongholds & Pilotable Vessels, and 3-Topology Granular Hit Location, Medical Surgery & Prosthetic Engine (`hit_location_engine.py`, including `FormBlock` `anatomy_topology_override` swaps).
 - **P11** (`v0.11.0`, `Planned`): Premade Map/Module Cartography Ingestor, Custom `.rpgtileset` Wang Auto-Tiler, Mass Warfare/Sieges & 5 Tactical Curveball Stress Fixtures.
 - **P12** (`v0.12.0`, `Planned`): Universal Chase, Pursuit, Race & Moving-Battle Engine, plus Universal Competition, Minigame & Festival Circuit Engine.
 - **P13** (`v0.13.0`, `Planned`): Map/Tileset Cartography Studios, Live GM World/Timeline Dock, 4-Bus Spatial Audio Director & Player Clip Broadcaster, Condition Shaders & Authoritative 3D Dice/Card Visual FX.
