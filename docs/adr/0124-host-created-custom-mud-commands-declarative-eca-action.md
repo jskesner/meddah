@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #74 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #74 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Host-Created Custom MUD Commands, Declarative `ECA` Action Chains, Custom 3-Perspective Social Emotes & Player Shorthand Aliases (`backend/app/mud_parser/custom_commands.py` & `CustomCommandAndEmoteStudio.tsx` — Phase 1 & Phase 6 [MVP], Volume 4 §1.7.4.G & Decision #3)**.

@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #70 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #70 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Universal Quest-Completion Treasure Bundles — Configurable Payout Timing & Scoped Merchant Registry Unlocks (`loot_mode: "treasure_bundles"` — Phase 9 [Post-MVP], Volume 5 §1.16)**.

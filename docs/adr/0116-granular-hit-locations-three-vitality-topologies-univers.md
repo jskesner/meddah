@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #66 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #66 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Granular Hit Locations, Three Vitality Topologies, Universal Clothing/Cosmetic/Armor Layering, Deep Wounds, Surgery & Prosthetic Retrofits (`backend/app/systems/hit_location_engine.py` & `HitLocationSilhouetteHUD.tsx` — Phase 10, Section 1.29 & Decision #50)**.

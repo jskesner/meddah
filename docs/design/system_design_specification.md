@@ -40,7 +40,7 @@ Meddah is a **universal ruleset interpreter**, not a game, and it must **never i
 
 > [!TIP]
 > **Modular Technical Specification Navigation**: To keep our documentation clean and easy to navigate, the deep-dive technical specifications are organized into a **Master Index & 14-Phase Implementation Plan** plus **5 Domain Technical Specification Volumes**:
-> - **Master Index, Module Registry (§1.0), 14-Phase Roadmap (§2) & 77 Grill-Me Resolutions (§2.1)**: [technical_specification_and_plan.md](./technical_specification_and_plan.md)
+> - **Master Index, Module Registry (§1.0), 14-Phase Roadmap (§2) & 77 Design Resolutions (§2.1)**: [technical_specification_and_plan.md](./technical_specification_and_plan.md)
 > - **Volume 1 — Core Ruleset VM, Universal Layered Inventory & Ruleset Ingestion (§1.0–§1.2)**: [tech_spec_01_core_vm_and_ingestion.md](./tech_spec_01_core_vm_and_ingestion.md)
 > - **Volume 2 — AI/Deterministic GM Director, Autonomous Companions, Quests & Retinue (§1.3–§1.4, §1.12, §1.19)**: [tech_spec_02_agents_companions_and_quests.md](./tech_spec_02_agents_companions_and_quests.md)
 > - **Volume 3 — Living World, Cosmology, Travel, Law/Capture, Megacities, Geopolitics & Events (§1.5, §1.11, §1.20–§1.24)**: [tech_spec_03_world_cosmology_and_society.md](./tech_spec_03_world_cosmology_and_society.md)

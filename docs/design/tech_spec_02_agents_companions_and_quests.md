@@ -2,7 +2,7 @@
 
 > [!TIP]
 > **Modular Technical Specification Navigation**:
-> - **Master Index, Module Registry (§1.0), 14-Phase Roadmap (§2) & 75 Grill-Me Resolutions (§2.1)**: [technical_specification_and_plan.md](./technical_specification_and_plan.md)
+> - **Master Index, Module Registry (§1.0), 14-Phase Roadmap (§2) & 77 Design Resolutions (§2.1)**: [technical_specification_and_plan.md](./technical_specification_and_plan.md)
 > - **High-Level Architecture, 4 Golden Rules & 50 Locked Decisions**: [system_design_specification.md](./system_design_specification.md)
 > - **Vol 1 — Core Ruleset VM, Layered Inventory & Ingestion (§1.0–§1.2)**: [tech_spec_01_core_vm_and_ingestion.md](./tech_spec_01_core_vm_and_ingestion.md)
 > - **Vol 2 — AI/Deterministic GM, Companions, Quests & Retinue (§1.3–§1.4, §1.12, §1.19)**: [tech_spec_02_agents_companions_and_quests.md](./tech_spec_02_agents_companions_and_quests.md)

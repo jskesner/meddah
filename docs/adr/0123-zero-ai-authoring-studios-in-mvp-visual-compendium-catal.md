@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #73 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #73 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Zero-AI Authoring Studios in MVP — Visual Compendium Catalog Manager, World/Dungeon/NPC/Faction Builder, World Consistency Linter & Dialogue/Oracle Designer (`CompendiumCatalogStudio.tsx`, `world_studio/` & `DialogueAndOracleStudio.tsx` — Phase 6 [MVP], Vol 1 §1.2.5.G, Vol 2 §1.3.5, Vol 3 §1.11, Vol 4 §1.18.5)**.

@@ -3,7 +3,7 @@
 - **Date**: 2026-11-23
 - **Status**: Accepted
 - **Deciders**: Maintainers, Architecture Design Session
-- **Related Issues / Decisions**: Grill-Me Resolution #68 (`docs/design/technical_specification_and_plan.md` §2.1)
+- **Related Issues / Decisions**: Design Resolution #68 (`docs/design/technical_specification_and_plan.md` §2.1)
 
 ## Context & Problem Statement
 Operational refinement and scope resolution for **Universal Anatomical Layering — Diegetic Concealment, Ruleset-Timed Outfit Presets & Optional Cosmetic Transmog (`inventory_graph.py` — Phase 1 & Phase 6 [MVP], Volume 1 §1.1.3)**.
