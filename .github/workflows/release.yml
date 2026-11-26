@@ -1,0 +1,70 @@
+name: Meddah Tagged Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Verify Quality Gates & Publish Release Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python & sync locked dependencies
+        run: uv sync --directory backend --frozen
+
+      - name: Check Python formatting (ruff format)
+        run: uv run --directory backend ruff format --check app tests ../tools
+
+      - name: Check Python lints (ruff check)
+        run: uv run --directory backend ruff check app tests ../tools
+
+      - name: Run static type checking (pyright)
+        run: uv run --directory backend pyright
+
+      - name: Verify Zero-Assumption Agnosticism (Golden Rule #1)
+        run: uv run --directory backend python ../tools/lint_agnosticism.py
+
+      - name: Verify Modularity & RAW Defaults (Golden Rule #4)
+        run: uv run --directory backend python ../tools/lint_modularity.py
+
+      - name: Enforce layer boundary contracts (import-linter)
+        run: uv run --directory backend lint-imports
+
+      - name: Verify JSON Schemas match Pydantic models
+        run: uv run --directory backend python ../tools/generate_types.py --check
+
+      - name: Verify ROADMAP.md structure & links
+        run: uv run --directory backend python ../tools/roadmap.py --check
+
+      - name: Run Zero-AI Deterministic Test Suite
+        run: uv run --directory backend pytest -m zero_ai
+
+      - name: Build Python distribution packages
+        run: uv build --directory backend --out-dir ../dist
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd dist
+          sha256sum *.whl *.tar.gz > SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
