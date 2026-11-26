@@ -17,7 +17,7 @@ phases:
   - id: P2.5
     name: Early Thin Playable Slice (Terminal CLI MUD & Headless Server Daemon)
     mvp: true
-    status: Planned
+    status: Done
     target_release: v0.2.5
     spec: ./docs/design/technical_specification_and_plan.md
   - id: P3
@@ -118,10 +118,10 @@ phases:
 - [x] Dual-track ingestion evaluation gates (`eval_harness.py`: `Tier A` 7-fixture deterministic corpus + `Tier B` Ollama micro-probe gate).
 
 ### [P2.5] Phase 2.5: Early Thin Playable Slice (Terminal CLI MUD & Headless Server Daemon)
-- **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.2.5`
-- [ ] `backend/app/cli/`: Interactive terminal client (`meddah attach` — including manual-roll mode toggle, direct `SHEET_OVERRIDE` edits, `form shift` / `form revert`, covert `hide`/`sneak`/`steal`/`plant`/`disguise` slot commands, and `timeskip`/`wait` voting prompts) & server management CLI (`meddah serve`, `campaign`, `session`, `seat`, `backup`, `ruleset`, `gpu-check`).
-- [ ] `docker/Dockerfile.server` & `docker/docker-compose.server.yml` (NVIDIA/AMD ROCm/Vulkan/CPU profiles).
-- [ ] 30-minute interactive Zero-AI acceptance test across the 3 showcase rulesets.
+- **Status**: `Done` | **MVP**: `Yes` | **Target Tag**: `v0.2.5`
+- [x] `backend/app/cli/`: Interactive terminal client (`meddah attach` — including manual-roll mode toggle, direct `SHEET_OVERRIDE` edits, `form shift` / `form revert`, covert `hide`/`sneak`/`steal`/`plant`/`disguise` slot commands, and `timeskip`/`wait` voting prompts) & server management CLI (`meddah serve`, `campaign`, `session`, `seat`, `backup`, `ruleset`, `gpu-check`).
+- [x] `docker/Dockerfile.server` & `docker/docker-compose.server.yml` (NVIDIA/AMD ROCm/Vulkan/CPU profiles).
+- [x] 30-minute interactive Zero-AI acceptance test across the 3 showcase rulesets.
 
 ### [P3] Phase 3: Event-Sourced Persistence, Multi-Scale Cosmology, Multi-Floor Dungeons & Living World Chronology
 - **Status**: `Planned` | **MVP**: `Yes` | **Target Tag**: `v0.3.0`

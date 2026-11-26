@@ -1,0 +1,50 @@
+# Multi-stage lean headless server image for Meddah (~150-250MB runtime, zero AI weights bundled)
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+COPY backend /build/backend
+
+RUN pip install --upgrade pip \
+    && pip wheel --wheel-dir /wheels /build/backend
+
+
+FROM python:3.12-slim AS server-runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MEDDAH_DATA_DIR=/data \
+    MEDDAH_HOST=0.0.0.0 \
+    MEDDAH_PORT=8420 \
+    AI_PROVIDER=none \
+    MEDDAH_SERVER_MODE=table
+
+RUN groupadd --system meddah \
+    && useradd --system --gid meddah --create-home --home-dir /home/meddah meddah \
+    && mkdir -p /data/campaigns /data/rulesets /data/backups /data/logs /data/config /run/meddah \
+    && chown -R meddah:meddah /data /run/meddah
+
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir --no-index --find-links=/wheels meddah \
+    && rm -rf /wheels
+
+COPY sample_rulesets /opt/meddah/sample_rulesets
+RUN cp -n /opt/meddah/sample_rulesets/showcase/classic_d20_fantasy/ruleset.json /data/rulesets/classic_d20_fantasy.json \
+    && cp -n /opt/meddah/sample_rulesets/showcase/grimdark_d100_investigative/ruleset.json /data/rulesets/grimdark_d100_investigative.json \
+    && cp -n /opt/meddah/sample_rulesets/showcase/narrative_2d6_clocks/ruleset.json /data/rulesets/narrative_2d6_clocks.json \
+    && chown -R meddah:meddah /data /opt/meddah
+
+USER meddah
+WORKDIR /data
+VOLUME ["/data"]
+EXPOSE 8420
+
+STOPSIGNAL SIGTERM
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8420/api/health', timeout=3)" || exit 1
+
+ENTRYPOINT ["meddah", "serve", "--host", "0.0.0.0", "--port", "8420", "--data-dir", "/data", "--admin-sock", "/run/meddah/admin.sock"]
