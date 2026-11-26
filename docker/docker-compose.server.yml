@@ -1,0 +1,117 @@
+services:
+  meddah-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.server
+    image: meddah-server:0.2.5
+    container_name: meddah-server
+    restart: unless-stopped
+    ports:
+      - "${MEDDAH_PORT:-8420}:8420"
+    environment:
+      MEDDAH_ENV: "${MEDDAH_ENV:-production}"
+      MEDDAH_HOST: "0.0.0.0"
+      MEDDAH_PORT: "8420"
+      MEDDAH_DATA_DIR: "/data"
+      MEDDAH_ADMIN_TOKEN: "${MEDDAH_ADMIN_TOKEN:-}"
+      AI_PROVIDER: "${AI_PROVIDER:-none}"
+      OLLAMA_BASE_URL: "${OLLAMA_BASE_URL:-http://ollama:11434}"
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5:7b-instruct-q4_K_M}"
+      TTS_PROVIDER: "${TTS_PROVIDER:-none}"
+      MEDDAH_SERVER_MODE: "${MEDDAH_SERVER_MODE:-table}"
+    volumes:
+      - meddah_data:/data
+      - meddah_run:/run/meddah
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8420/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  ollama-nvidia:
+    profiles: ["ollama-nvidia"]
+    image: ollama/ollama:latest
+    container_name: meddah-ollama-nvidia
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  ollama-amd:
+    profiles: ["ollama-amd"]
+    image: ollama/ollama:rocm
+    container_name: meddah-ollama-amd
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - video
+      - render
+    environment:
+      HSA_OVERRIDE_GFX_VERSION: "${HSA_OVERRIDE_GFX_VERSION:-11.0.0}"
+      ROCR_VISIBLE_DEVICES: "${ROCR_VISIBLE_DEVICES:-0}"
+    volumes:
+      - ollama_models:/root/.ollama
+
+  ollama-vulkan:
+    profiles: ["ollama-vulkan"]
+    image: ollama/ollama:latest
+    container_name: meddah-ollama-vulkan
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    devices:
+      - "/dev/dri:/dev/dri"
+    environment:
+      OLLAMA_VULKAN: "1"
+    volumes:
+      - ollama_models:/root/.ollama
+
+  ollama-cpu:
+    profiles: ["ollama-cpu"]
+    image: ollama/ollama:latest
+    container_name: meddah-ollama-cpu
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_NUM_CTX: "4096"
+    volumes:
+      - ollama_models:/root/.ollama
+
+  piper-tts:
+    profiles: ["piper-tts"]
+    image: rhasspy/wyoming-piper:latest
+    container_name: meddah-piper-tts
+    restart: unless-stopped
+    ports:
+      - "10200:10200"
+    command: ["--voice", "en_US-lessac-medium"]
+    volumes:
+      - piper_voices:/data
+
+  tunnel:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    container_name: meddah-tunnel
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--url", "http://meddah-server:8420"]
+    depends_on:
+      - meddah-server
+
+volumes:
+  meddah_data:
+  meddah_run:
+  ollama_models:
+  piper_voices:

@@ -761,6 +761,13 @@ def parse_mud_command(
         else expanded_input
     )
     parts = normalized.split(None, 1)
+    if not parts:
+        return ParsedMudCommand(
+            raw_input=raw_input,
+            category="meta",
+            verb="noop",
+            flags=tuple(flags),
+        )
     verb_raw = parts[0].lower()
     tail = parts[1].strip() if len(parts) > 1 else ""
 
